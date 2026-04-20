@@ -6,7 +6,7 @@ import { useTheme } from 'next-themes'
 import { useEffect, useState } from 'react'
 
 export default function SettingsPage() {
-  const { user, role } = useUserStore()
+  const { user } = useUserStore()
   const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
 
@@ -42,13 +42,6 @@ export default function SettingsPage() {
               <p className="text-[11px] uppercase tracking-widest font-extrabold text-muted-foreground mb-2">Email Identity</p>
               <div className="px-5 py-4 bg-muted/20 border border-muted/50 rounded-2xl text-foreground font-semibold text-lg w-full max-w-md shadow-inner">
                 {user?.email || 'Loading authentication identity...'}
-              </div>
-            </div>
-            <div>
-              <p className="text-[11px] uppercase tracking-widest font-extrabold text-muted-foreground mb-2">Internal Role</p>
-              <div className="px-5 py-4 bg-muted/20 border border-muted/50 rounded-2xl text-foreground font-semibold text-lg w-full max-w-md capitalize flex items-center gap-3 shadow-inner">
-                {role || 'Standard Participant'}
-                {role === 'admin' && <span className="px-3 py-1 rounded-full bg-accent text-accent-foreground text-xs font-black shadow-sm uppercase tracking-wide">Privileged Node</span>}
               </div>
             </div>
           </div>

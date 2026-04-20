@@ -1,10 +1,18 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Mic, MicOff, Save, Check } from 'lucide-react'
+import { Mic, MicOff, Save, Check, Globe, History, ChevronDown, ChevronUp, PlusCircle, Volume2, AlertCircle } from 'lucide-react'
 
-// Basic layout contract for notes editor component
+// Enhanced types for transcription tracking
+type TranscriptSession = {
+  id: string        // uuid generated client-side (crypto.randomUUID())
+  text: string      // the complete final transcript for this session
+  language: string  // the recognition.lang value used
+  wordCount: number // text.split(' ').filter(Boolean).length
+  startedAt: Date   // when recognition.start() was called
+}
+
 interface NoteEditorProps {
   note: {
     id: string
@@ -14,90 +22,194 @@ interface NoteEditorProps {
   onUpdate: (id: string, updates: any) => void
 }
 
+const LANGUAGES = [
+  { code: 'en-US', name: 'English (US)' },
+  { code: 'en-GB', name: 'English (UK)' },
+  { code: 'fil-PH', name: 'Filipino' },
+  { code: 'es-ES', name: 'Spanish' },
+  { code: 'ja-JP', name: 'Japanese' },
+]
+
 export default function NoteEditor({ note, onUpdate }: NoteEditorProps) {
   const [title, setTitle] = useState(note.title)
   const [content, setContent] = useState(note.content)
   const [saving, setSaving] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   
-  // Speech-to-text recording state flag
+  // Enhanced Speech-to-text state
   const [isRecording, setIsRecording] = useState(false)
+  const [interimText, setInterimText] = useState('')
+  const [selectedLanguage, setSelectedLanguage] = useState('en-US')
+  const [transcriptSessions, setTranscriptSessions] = useState<TranscriptSession[]>([])
+  const [currentSession, setCurrentSession] = useState<TranscriptSession | null>(null)
+  const [showHistory, setShowHistory] = useState(false)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null)
   
   const supabase = createClient()
   const contentRef = useRef<HTMLDivElement>(null)
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const [recognition, setRecognition] = useState<any>(null)
+  const [recognition, setRecognition] = useState<any>(null) // Browser SpeechRecognition is untyped
 
-  // Configure Web Speech API (Browser compatible)
+  // Browser STT Compatibility Check
+  const isSpeechSupported = useMemo(() => {
+    if (typeof window === 'undefined') return false
+    return !!((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition)
+  }, [])
+
+  // Load transcription history on mount
   useEffect(() => {
-    // Standard and Webkit prefixes handled
+    const fetchSessions = async () => {
+      const { data } = await supabase
+        .from('transcription_sessions')
+        .select('*')
+        .eq('note_id', note.id)
+        .order('created_at', { ascending: false })
+      
+      if (data) {
+        // Map DB record to TranscriptSession type
+        const mappedSessions: TranscriptSession[] = data.map((s: any) => ({
+          id: s.id,
+          text: s.transcript,
+          language: s.language,
+          wordCount: s.word_count,
+          startedAt: new Date(s.created_at)
+        }))
+        setTranscriptSessions(mappedSessions)
+      }
+    }
+    fetchSessions()
+  }, [note.id, supabase])
+
+  // Configure Web Speech API
+  useEffect(() => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
     if (SpeechRecognition) {
       const rec = new SpeechRecognition()
-      rec.continuous = true // continue listening
+      rec.continuous = true
       rec.interimResults = true
+      rec.lang = selectedLanguage
       
-      rec.onresult = (event: any) => {
+      rec.onresult = (event: any) => { // SpeechRecognitionEvent is untyped
         let finalTranscript = ''
+        let currentInterim = ''
+        
         for (let i = event.resultIndex; i < event.results.length; ++i) {
+          const transcript = event.results[i][0].transcript
           if (event.results[i].isFinal) {
-            finalTranscript += event.results[i][0].transcript + ' '
+            finalTranscript += transcript + ' '
+          } else {
+            currentInterim += transcript
           }
         }
         
-        // Append transcribed text directly into our editor state
+        setInterimText(currentInterim)
+        
         if (finalTranscript) {
-          const newContent = contentRef.current?.innerText ? contentRef.current.innerText + ' ' + finalTranscript : finalTranscript
+          // Only commit final text to the note content
+          const currentContent = contentRef.current?.innerText || ''
+          const newContent = currentContent.trim() + ' ' + finalTranscript.trim()
           
           if (contentRef.current) {
              contentRef.current.innerText = newContent
           }
           setContent(newContent)
+          
+          // Update the current session's text and word count
+          setCurrentSession(prev => {
+            if (!prev) return null
+            const updatedText = (prev.text + ' ' + finalTranscript).trim()
+            return {
+              ...prev,
+              text: updatedText,
+              wordCount: updatedText.split(/\s+/).filter(Boolean).length
+            }
+          })
+          
           scheduleSave(title, newContent)
         }
       }
       
-      rec.onend = () => {
-        setIsRecording(false) // Handle graceful shutdown or microphone failure
+      rec.onend = async () => {
+        setIsRecording(false)
+        setInterimText('')
+        
+        // Save session to Supabase if it produced any text
+        setCurrentSession(prev => {
+          if (prev && prev.text.trim()) {
+            const saveSession = async () => {
+              const duration = Math.round((Date.now() - prev.startedAt.getTime()) / 1000)
+              const { data, error } = await supabase
+                .from('transcription_sessions')
+                .insert({
+                  user_id: (await supabase.auth.getUser()).data.user?.id,
+                  note_id: note.id,
+                  transcript: prev.text,
+                  language: prev.language,
+                  word_count: prev.wordCount,
+                  duration_seconds: duration,
+                })
+                .select()
+                .single()
+
+              if (!error && data) {
+                const newHistorySession: TranscriptSession = {
+                  id: data.id,
+                  text: data.transcript,
+                  language: data.language,
+                  wordCount: data.word_count,
+                  startedAt: new Date(data.created_at)
+                }
+                setTranscriptSessions(history => [newHistorySession, ...history])
+              }
+            }
+            saveSession()
+          }
+          return null // Reset current session
+        })
       }
       
-      rec.onerror = (event: any) => {
-        console.error('Speech recognition error:', event.error)
+      rec.onerror = (event: any) => { // SpeechRecognitionErrorEvent is untyped
         setIsRecording(false)
-        if (event.error === 'not-allowed') {
-          alert('Microphone access was denied. Please check your browser permissions.')
-        } else if (event.error !== 'no-speech') {
-          alert(`Microphone error: ${event.error}. Try using Google Chrome.`)
+        const errorMap: Record<string, string> = {
+          'not-allowed': "Microphone access was denied. Please allow microphone permissions in your browser settings.",
+          'audio-capture': "No microphone was found. Please connect a microphone and try again.",
+          'no-speech': "No speech was detected. Please try speaking again.",
+          'network': "A network error occurred. Please check your connection."
         }
+        const message = errorMap[event.error] || "Speech recognition failed. Please try again or use Google Chrome."
+        
+        setErrorMessage(message)
+        setTimeout(() => setErrorMessage(null), 5000)
       }
       
       setRecognition(rec)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [selectedLanguage, title, note.id, supabase])
 
-  // Toggle mic handler to trigger Speech API
   const toggleRecording = () => {
-    if (!recognition) {
-       alert('Your browse does not support Speech Recognition. Try Google Chrome or Microsoft Edge.')
-       return
-    }
-    
-    try {
-      if (isRecording) {
-        recognition.stop()
-        setIsRecording(false)
-      } else {
-        recognition.start()
-        setIsRecording(true)
+    if (isRecording) {
+      if (recognition) recognition.stop()
+    } else {
+      if (!recognition) return
+      setErrorMessage(null)
+      setInterimText('')
+      
+      const newSession: TranscriptSession = {
+        id: crypto.randomUUID(),
+        text: '',
+        language: selectedLanguage,
+        wordCount: 0,
+        startedAt: new Date()
       }
-    } catch (err: any) {
-      alert(`Speech API failed to start: ${err.message}`)
-      setIsRecording(false)
+      
+      setCurrentSession(newSession)
+      recognition.lang = selectedLanguage
+      recognition.start()
+      setIsRecording(true)
     }
   }
 
-  // Uses debouncing to push changes up to Supabase auto-saving the document silently
   const scheduleSave = useCallback((newTitle: string, newContent: string) => {
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
     
@@ -113,80 +225,192 @@ export default function NoteEditor({ note, onUpdate }: NoteEditorProps) {
         onUpdate(note.id, { title: newTitle, content: newContent })
       }
       setSaving(false)
-    }, 1200) // Delay auto-save by 1.2s to reduce excessive network requests
+    }, 1200)
   }, [note.id, supabase, onUpdate])
 
-  // Track the title modifications
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setTitle(e.target.value)
     scheduleSave(e.target.value, content)
   }
 
-  // Track the paragraph block content modifications
   const handleContentInput = (e: React.FormEvent<HTMLDivElement>) => {
     const newContent = e.currentTarget.innerText
     setContent(newContent)
     scheduleSave(title, newContent)
   }
 
+  const reinsertTranscript = (text: string) => {
+    const newContent = content.trim() + '\n\n' + text
+    setContent(newContent)
+    if (contentRef.current) {
+      contentRef.current.innerText = newContent
+    }
+    scheduleSave(title, newContent)
+  }
+
   return (
-    <div className="flex flex-col h-full bg-card rounded-r-3xl animate-in fade-in duration-300">
+    <div className="flex flex-col h-full bg-card rounded-r-3xl animate-in fade-in duration-300 relative overflow-hidden">
       
-      {/* Top Banner Toolbar */}
-      <div className="flex items-center justify-between p-6 border-b border-muted/30">
-        <div className="flex gap-4 text-sm text-muted-foreground mr-4">
-          {saving ? (
-            <span className="flex items-center gap-1.5 font-medium"><Save className="w-4 h-4 animate-pulse" /> Auto-saving...</span>
-          ) : lastSaved ? (
-            <span className="flex items-center gap-1.5 font-medium"><Check className="w-4 h-4 text-emerald-500" /> Saved</span>
-          ) : null}
+      {/* Toolbar */}
+      <div className="flex flex-col border-b border-muted/30">
+        <div className="flex items-center justify-between p-6">
+          <div className="flex items-center gap-6">
+            <div className="flex gap-4 text-sm text-muted-foreground">
+              {saving ? (
+                <span className="flex items-center gap-1.5 font-medium"><Save className="w-4 h-4 animate-pulse" /> Auto-saving...</span>
+              ) : lastSaved ? (
+                <span className="flex items-center gap-1.5 font-medium"><Check className="w-4 h-4 text-emerald-500" /> Saved</span>
+              ) : null}
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-3">
+            {isRecording && currentSession && (
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-red-50 rounded-lg border border-red-100 animate-in fade-in zoom-in-95">
+                <div className="w-2 h-2 bg-red-500 rounded-full animate-ping" />
+                <span className="text-[10px] font-black text-red-600 uppercase tracking-widest">{currentSession.wordCount} Words</span>
+              </div>
+            )}
+
+            {!isRecording && isSpeechSupported && (
+              <div className="flex items-center gap-2 bg-muted/20 p-1 rounded-xl border border-muted/30">
+                <Globe className="w-4 h-4 text-muted-foreground ml-2" />
+                <select 
+                  value={selectedLanguage}
+                  onChange={(e) => setSelectedLanguage(e.target.value)}
+                  className="bg-transparent text-xs font-bold text-foreground focus:outline-none pr-2 py-1 appearance-none cursor-pointer"
+                >
+                  <option value="en-US">English (US)</option>
+                  <option value="en-GB">English (UK)</option>
+                  <option value="fil-PH">Filipino</option>
+                  <option value="es-ES">Spanish</option>
+                  <option value="ja-JP">Japanese</option>
+                </select>
+              </div>
+            )}
+
+            <button 
+              onClick={() => setShowHistory(!showHistory)}
+              className={`p-2.5 rounded-xl transition-all ${showHistory ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted/50'}`}
+              title="Transcription History"
+            >
+              <History className="w-5 h-5" />
+            </button>
+
+            <button 
+              onClick={toggleRecording}
+              disabled={!isSpeechSupported}
+              className={`flex items-center gap-2.5 px-5 py-2.5 rounded-xl text-sm font-bold transition-all shadow-sm ${
+                isRecording 
+                  ? 'bg-red-500 text-white animate-pulse' 
+                  : 'bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50 disabled:grayscale'
+              }`}
+            >
+              {isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+              {isRecording ? 'Stop Session' : 'Dictate'}
+            </button>
+          </div>
         </div>
-        
-        {/* Magic Speech button */}
-        <button 
-          onClick={toggleRecording}
-          className={`flex items-center gap-2.5 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm ${
-            isRecording 
-              ? 'bg-red-100 text-red-700 animate-pulse border border-red-200' 
-              : 'bg-primary text-primary-foreground hover:opacity-90'
-          }`}
-        >
-          {isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-          {isRecording ? 'Stop Dictating' : 'Dictate Speech'}
-        </button>
+
+        {/* Browser Support Banner */}
+        {!isSpeechSupported && (
+          <div className="mx-6 mb-4 flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-700">
+             <AlertCircle className="w-5 h-5 shrink-0" />
+             <p className="text-xs font-medium">Speech recognition is not available in your browser. Try Google Chrome or Microsoft Edge for the best experience.</p>
+          </div>
+        )}
+
+        {/* Inline Error Message */}
+        {errorMessage && (
+          <div className="mx-6 mb-4 flex items-center gap-3 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 animate-in slide-in-from-top-2">
+             <AlertCircle className="w-5 h-5 shrink-0" />
+             <p className="text-xs font-bold">{errorMessage}</p>
+          </div>
+        )}
       </div>
 
-      {/* Editor Body Area */}
-      <div className="flex-1 overflow-y-auto p-10 max-w-4xl mx-auto w-full">
-        {/* Title Block */}
-        <input 
-          type="text"
-          value={title}
-          onChange={handleTitleChange}
-          placeholder="Document Title"
-          className="w-full text-4xl font-extrabold text-foreground bg-transparent border-none focus:outline-none mb-8 placeholder:text-muted-foreground/30"
-        />
-        
-        {/* 
-          This is a simulated basic Notion-style editor block focusing on simple text
-          Extending it to support Markdown nodes natively is out of scope for the simple request, 
-          so it relies on the Browser's 'contentEditable' HTML interface to collect text logic.
-        */}
-        <div 
-          ref={contentRef}
-          contentEditable
-          suppressContentEditableWarning
-          onInput={handleContentInput}
-          className="w-full min-h-[500px] text-lg leading-loose text-foreground/90 focus:outline-none focus:ring-0 whitespace-pre-wrap pb-32"
-          dangerouslySetInnerHTML={{ __html: note.content || '' }} /* Empty state fallback */
-        />
-        
-        {content.length === 0 && (
-           <div className="pointer-events-none absolute mt-[-550px] text-muted-foreground/40 text-lg">
-             Type something, or click &quot;Dictate Speech&quot; to insert text using your voice...
-           </div>
+      {/* Main Editor Content */}
+      <div className="flex-1 flex overflow-hidden">
+        <div className="flex-1 overflow-y-auto p-10 max-w-4xl mx-auto w-full scrollbar-hide">
+          {/* Interim Preview Bar */}
+          {isRecording && (
+            <div className="mb-6 p-4 bg-primary/5 border border-primary/10 rounded-2xl animate-in fade-in slide-in-from-top-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Volume2 className="w-4 h-4 text-primary animate-bounce" />
+                <span className="text-[10px] font-bold text-primary uppercase tracking-widest">Listening Live...</span>
+              </div>
+              <p className="text-foreground/60 italic text-base leading-relaxed">
+                {interimText || 'Start speaking to see live transcription...'}
+              </p>
+            </div>
+          )}
+
+          <input 
+            type="text"
+            value={title}
+            onChange={handleTitleChange}
+            placeholder="Document Title"
+            className="w-full text-4xl font-extrabold text-foreground bg-transparent border-none focus:outline-none mb-8 placeholder:text-muted-foreground/30"
+          />
+          
+          <div 
+            ref={contentRef}
+            contentEditable
+            suppressContentEditableWarning
+            onInput={handleContentInput}
+            className="w-full min-h-[500px] text-lg leading-loose text-foreground/90 focus:outline-none focus:ring-0 whitespace-pre-wrap pb-32"
+            dangerouslySetInnerHTML={{ __html: note.content || '' }} 
+          />
+          
+          {content.length === 0 && !isRecording && (
+             <div className="pointer-events-none absolute top-48 text-muted-foreground/40 text-lg italic">
+               Type something, or click &quot;Dictate&quot; to transform your voice into notes...
+             </div>
+          )}
+        </div>
+
+        {/* History Panel */}
+        {showHistory && (
+          <div className="w-80 border-l border-muted/30 bg-muted/5 flex flex-col animate-in slide-in-from-right duration-300">
+            <div className="p-6 border-b border-muted/30 flex items-center justify-between">
+              <h4 className="font-bold text-sm flex items-center gap-2">
+                <History className="w-4 h-4 text-primary" /> Past Sessions
+              </h4>
+              <span className="text-[10px] bg-muted px-2 py-0.5 rounded font-bold text-muted-foreground">{transcriptSessions.length}</span>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {transcriptSessions.length === 0 ? (
+                <div className="text-center py-10 px-4">
+                  <p className="text-xs text-muted-foreground font-medium">No transcription sessions recorded for this note yet.</p>
+                </div>
+              ) : (
+                transcriptSessions.map((session) => (
+                  <div key={session.id} className="bg-card border border-muted/30 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow group">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[10px] font-bold text-muted-foreground">{session.startedAt.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                      <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-bold uppercase">{session.language}</span>
+                    </div>
+                    <p className="text-xs text-foreground/80 line-clamp-3 mb-3 leading-relaxed">
+                      {session.text}
+                    </p>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] text-muted-foreground font-bold uppercase">{session.wordCount} words</span>
+                      <button 
+                        onClick={() => reinsertTranscript(session.text)}
+                        className="text-[10px] font-bold text-primary flex items-center gap-1 hover:underline underline-offset-2"
+                      >
+                        <PlusCircle className="w-3 h-3" /> Re-insert
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
         )}
       </div>
     </div>
   )
 }
+

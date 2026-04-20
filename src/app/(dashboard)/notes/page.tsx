@@ -47,6 +47,7 @@ export default function NotesPage() {
       return
     }
 
+    console.log('Attempting to create note for user:', user?.id)
     const newNote = {
       user_id: user.id,
       title: 'Untitled Note',
@@ -59,8 +60,8 @@ export default function NotesPage() {
       .single()
 
     if (error) {
-      alert(`Database Error: ${error.message} - Have you run the database.sql setup file?`)
-      console.error(error)
+      console.error('Full insertion error object:', JSON.stringify(error, null, 2) || error)
+      alert(`Database Error: ${error.message || 'Unknown Error'} (${error.code || 'No Code'}) - Please ensure you have executed the latest SQL in database.sql.`)
     } else if (data) {
       setNotes([data, ...notes])
       setActiveNoteId(data.id)

@@ -19,8 +19,6 @@ const navItems = [
 export function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
-  // Fetch user role from globally managed state
-  const { role } = useUserStore()
   const supabase = createClient()
 
   // This logs the user out and refreshes the page, which triggers middleware to redirect to /login
@@ -58,22 +56,6 @@ export function Sidebar() {
           )
         })}
 
-        {/* Render admin link strictly if the current global role state explicitly is admin */}
-        {role === 'admin' && (
-          <div className="pt-4 mt-4 border-t border-muted/50">
-            <Link
-              href="/admin"
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 ${
-                pathname.startsWith('/admin')
-                  ? 'bg-accent/20 text-accent-foreground font-semibold shadow-sm' 
-                  : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground font-medium'
-              }`}
-            >
-              <Shield className={`w-5 h-5 ${pathname.startsWith('/admin') ? 'text-accent-foreground' : 'text-muted-foreground'}`} />
-              Admin Panel
-            </Link>
-          </div>
-        )}
       </nav>
 
       {/* Footer operations (logout) */}

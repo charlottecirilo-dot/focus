@@ -41,8 +41,7 @@ export async function updateSession(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
 
   // Define URLs that require authentication
-  const protectedRoutes = ['/dashboard', '/notes', '/tasks', '/admin', '/flashcards']
-  const isAdminRoute = request.nextUrl.pathname.startsWith('/admin')
+  const protectedRoutes = ['/dashboard', '/notes', '/tasks', '/flashcards']
   const isProtectedRoute = protectedRoutes.some(route => request.nextUrl.pathname.startsWith(route))
 
   // Redirect to login if user is unauthenticated and accesses a protected route
@@ -52,20 +51,7 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // If user accesses /admin, verify admin role via profiles table
-  if (user && isAdminRoute) {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-      
-    if (!profile || profile.role !== 'admin') {
-      const url = request.nextUrl.clone()
-      url.pathname = '/dashboard' // Role validation failed, redirect to dashboard
-      return NextResponse.redirect(url)
-    }
-  }
+
 
   // If already logged in and visiting login, send straight to dashboard
   if (user && (request.nextUrl.pathname === '/login' || request.nextUrl.pathname === '/signup')) {

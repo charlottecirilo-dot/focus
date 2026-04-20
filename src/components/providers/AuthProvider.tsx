@@ -10,18 +10,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const supabase = createClient()
 
   useEffect(() => {
-    // Fetches the current logged-in user and their profile (inc role)
+    // Fetches the current logged-in user
     const loadUser = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
-        // Fetch the user's role from the custom profiles table
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', user.id)
-          .single()
-        
-        setUser(user, profile?.role || 'user')
+        setUser(user)
       } else {
         clearUser()
       }
@@ -32,13 +25,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Listen to ongoing authentication state changes (login, logout, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', session.user.id)
-          .single()
-        
-        setUser(session.user, profile?.role || 'user')
+        setUser(session.user)
       } else {
         clearUser()
       }
