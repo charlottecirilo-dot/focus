@@ -80,7 +80,7 @@ export default function TasksPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
           
           {/* Main List Area */}
-          <div className="lg:col-span-2 bg-card rounded-[2rem] border border-muted/50 p-8 md:p-10 shadow-sm">
+          <div className="lg:col-span-2 bg-card/60 backdrop-blur-xl rounded-[2.5rem] border border-muted/50 p-6 md:p-10 shadow-sm transition-all duration-300 hover:shadow-md">
             <h3 className="text-2xl font-bold mb-8 text-foreground flex items-center gap-3">
               <CheckCircle2 className="text-primary w-7 h-7" /> Your Checklist
             </h3>
@@ -145,8 +145,8 @@ export default function TasksPage() {
           </div>
 
           {/* Progress Tracker Widget Component Area */}
-          <div className="lg:col-span-1 space-y-6 sticky top-8">
-            <div className="bg-gradient-to-br from-primary/10 to-accent/10 border border-primary/20 rounded-[2rem] p-8 shadow-sm">
+          <div className="lg:col-span-1 space-y-6 sticky top-8 z-10">
+            <div className="bg-gradient-to-br from-primary/10 via-background/60 to-accent/10 backdrop-blur-xl border border-primary/20 rounded-[2.5rem] p-8 shadow-sm">
               <h3 className="text-2xl font-bold mb-2 text-foreground">Progress</h3>
               <p className="text-sm text-muted-foreground mb-10 font-medium">Daily execution metrics reflecting checklist resolution.</p>
               

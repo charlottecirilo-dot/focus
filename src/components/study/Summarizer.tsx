@@ -20,9 +20,9 @@ export default function Summarizer() {
   }
 
   return (
-    <div className="h-full flex animate-in fade-in duration-300">
+    <div className="h-full flex flex-col lg:flex-row animate-in fade-in duration-300">
       {/* Left Input Half */}
-      <div className="w-1/2 p-10 border-r border-muted/50 flex flex-col h-full bg-background rounded-l-[2rem]">
+      <div className="w-full lg:w-1/2 p-6 lg:p-10 border-b lg:border-b-0 lg:border-r border-muted/50 flex flex-col h-full bg-background/60 backdrop-blur-md rounded-t-[2rem] lg:rounded-tr-none lg:rounded-l-[2rem] z-10">
         <div className="flex items-center gap-3 mb-4">
           <div className="w-10 h-10 bg-accent/20 rounded-xl flex items-center justify-center">
              <Sparkles className="w-5 h-5 text-accent-foreground" />
@@ -53,7 +53,7 @@ export default function Summarizer() {
       </div>
       
       {/* Right Output Half */}
-      <div className="w-1/2 p-10 bg-muted/10 flex flex-col relative overflow-y-auto">
+      <div className="w-full lg:w-1/2 p-6 lg:p-10 bg-card flex flex-col relative overflow-y-auto">
         {isSummarizing ? (
            <div className="text-center animate-pulse m-auto">
              <div className="w-24 h-24 bg-accent/20 rounded-full flex items-center justify-center mx-auto mb-8 shadow-inner">

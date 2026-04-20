@@ -49,10 +49,10 @@ export default function FileUpload() {
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        className={`w-full max-w-3xl aspect-[21/9] border-[3px] border-dashed rounded-[2.5rem] flex flex-col items-center justify-center p-8 transition-all duration-500 relative overflow-hidden group ${
+        className={`w-full max-w-3xl min-h-[350px] md:aspect-[21/9] border-[3px] border-dashed rounded-[2.5rem] flex flex-col items-center justify-center p-6 md:p-8 transition-all duration-500 relative overflow-hidden group ${
           isDragging 
             ? 'border-primary bg-primary/5 scale-[1.02] shadow-xl' 
-            : 'border-muted-foreground/20 bg-card hover:border-primary/40 hover:bg-muted/5'
+            : 'border-muted-foreground/20 bg-background/40 backdrop-blur-md hover:border-primary/40 hover:bg-muted/10'
         }`}
       >
         {isUploading ? (

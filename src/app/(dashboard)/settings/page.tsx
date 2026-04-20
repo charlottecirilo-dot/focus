@@ -26,7 +26,7 @@ export default function SettingsPage() {
 
       <div className="grid gap-8 mt-4">
         {/* Profile Card mapping Supabase User details */}
-        <div className="bg-card rounded-[2rem] border border-muted/50 p-8 shadow-sm">
+        <div className="bg-card/60 backdrop-blur-xl rounded-[2.5rem] border border-muted/50 p-8 md:p-10 shadow-sm transition-all hover:shadow-md">
           <div className="flex items-center gap-5 mb-8">
             <div className="w-16 h-16 bg-primary/20 rounded-2xl flex items-center justify-center">
               <User className="w-8 h-8 text-primary-foreground" />
@@ -48,7 +48,7 @@ export default function SettingsPage() {
         </div>
 
         {/* Display Settings integrating next-themes */}
-        <div className="bg-card rounded-[2rem] border border-muted/50 p-8 shadow-sm">
+        <div className="bg-card/60 backdrop-blur-xl rounded-[2.5rem] border border-muted/50 p-8 md:p-10 shadow-sm transition-all hover:shadow-md">
           <div className="mb-8">
              <h3 className="text-2xl font-bold text-foreground">Aesthetic Appearance</h3>
              <p className="text-base text-muted-foreground mt-1">Configure interface color mode dynamics to match your preferences.</p>
@@ -57,28 +57,28 @@ export default function SettingsPage() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-2xl">
              <button 
                onClick={() => setTheme('light')}
-               className={`p-6 rounded-2xl border-2 flex flex-col items-center gap-4 transition-all duration-300 ${
-                 theme === 'light' ? 'border-primary bg-primary/10 scale-105 shadow-sm' : 'border-muted/50 hover:border-primary/50 hover:bg-muted/10'
+               className={`p-6 rounded-[2rem] border-2 flex flex-col items-center gap-4 transition-all duration-300 ${
+                 theme === 'light' ? 'border-primary bg-primary/10 scale-105 shadow-md shadow-primary/20' : 'border-muted/50 hover:border-primary/50 hover:bg-primary/5 hover:shadow-sm'
                }`}
              >
-               <Sun className={`w-8 h-8 ${theme === 'light' ? 'text-primary-foreground' : 'text-amber-500'}`} />
+               <Sun className={`w-8 h-8 ${theme === 'light' ? 'text-primary-foreground drop-shadow-md' : 'text-amber-500'}`} />
                <span className="font-bold text-base">Light Theme</span>
              </button>
              
              <button 
                onClick={() => setTheme('dark')}
-               className={`p-6 rounded-2xl border-2 flex flex-col items-center gap-4 transition-all duration-300 ${
-                 theme === 'dark' ? 'border-accent bg-accent/10 scale-105 shadow-sm' : 'border-muted/50 hover:border-accent/50 hover:bg-muted/10'
+               className={`p-6 rounded-[2rem] border-2 flex flex-col items-center gap-4 transition-all duration-300 ${
+                 theme === 'dark' ? 'border-accent bg-accent/10 scale-105 shadow-md shadow-accent/20' : 'border-muted/50 hover:border-accent/50 hover:bg-accent/5 hover:shadow-sm'
                }`}
              >
-               <Moon className={`w-8 h-8 ${theme === 'dark' ? 'text-accent-foreground' : 'text-indigo-400'}`} />
+               <Moon className={`w-8 h-8 ${theme === 'dark' ? 'text-accent-foreground drop-shadow-md' : 'text-indigo-400'}`} />
                <span className="font-bold text-base">Dark Theme</span>
              </button>
 
              <button 
                onClick={() => setTheme('system')}
-               className={`p-6 rounded-2xl border-2 flex flex-col items-center gap-4 transition-all duration-300 ${
-                 theme === 'system' ? 'border-foreground bg-foreground/5 scale-105 shadow-sm' : 'border-muted/50 hover:border-foreground/50 hover:bg-muted/10'
+               className={`p-6 rounded-[2rem] border-2 flex flex-col items-center gap-4 transition-all duration-300 ${
+                 theme === 'system' ? 'border-foreground bg-foreground/5 scale-105 shadow-md shadow-foreground/10' : 'border-muted/50 hover:border-foreground/50 hover:bg-foreground/5 hover:shadow-sm'
                }`}
              >
                <Monitor className="w-8 h-8 text-foreground/70" />

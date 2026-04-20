@@ -134,9 +134,9 @@ export default function Flashcards() {
 
   // Renders Creation layout & Overview board
   return (
-    <div className="flex h-full animate-in fade-in duration-300">
-      <div className="w-[30%] bg-muted/5 border-r border-muted/50 p-8 flex flex-col shrink-0">
-        <h3 className="font-extrabold text-xl mb-8 text-foreground">Add New Card</h3>
+    <div className="flex flex-col lg:flex-row h-full animate-in fade-in duration-300 bg-transparent">
+      <div className="w-full lg:w-[350px] bg-background/60 backdrop-blur-xl border-b lg:border-b-0 lg:border-r border-muted/50 p-6 lg:p-8 flex flex-col shrink-0 shadow-sm z-10">
+        <h3 className="font-extrabold text-xl mb-6 text-foreground">Add New Card</h3>
         <form onSubmit={handleCreate} className="space-y-5">
           <div>
             <label className="block text-sm font-bold mb-2 text-foreground">Front Content</label>

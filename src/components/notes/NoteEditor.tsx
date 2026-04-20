@@ -57,6 +57,17 @@ export default function NoteEditor({ note, onUpdate }: NoteEditorProps) {
     return !!((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition)
   }, [])
 
+  // Initialize content on mount or when note changes
+  useEffect(() => {
+    if (contentRef.current) {
+      contentRef.current.innerText = note.content || ''
+    }
+    setContent(note.content || '')
+    setTitle(note.title)
+    setLastSaved(null)
+  }, [note.id])
+
+
   // Load transcription history on mount
   useEffect(() => {
     const fetchSessions = async () => {
@@ -330,8 +341,8 @@ export default function NoteEditor({ note, onUpdate }: NoteEditorProps) {
       </div>
 
       {/* Main Editor Content */}
-      <div className="flex-1 flex overflow-hidden">
-        <div className="flex-1 overflow-y-auto p-10 max-w-4xl mx-auto w-full scrollbar-hide">
+      <div className="flex-1 flex overflow-hidden min-w-0">
+        <div className="flex-1 overflow-y-auto p-6 md:p-10 max-w-4xl mx-auto w-full scrollbar-hide">
           {/* Interim Preview Bar */}
           {isRecording && (
             <div className="mb-6 p-4 bg-primary/5 border border-primary/10 rounded-2xl animate-in fade-in slide-in-from-top-4">
@@ -359,8 +370,8 @@ export default function NoteEditor({ note, onUpdate }: NoteEditorProps) {
             suppressContentEditableWarning
             onInput={handleContentInput}
             className="w-full min-h-[500px] text-lg leading-loose text-foreground/90 focus:outline-none focus:ring-0 whitespace-pre-wrap pb-32"
-            dangerouslySetInnerHTML={{ __html: note.content || '' }} 
           />
+
           
           {content.length === 0 && !isRecording && (
              <div className="pointer-events-none absolute top-48 text-muted-foreground/40 text-lg italic">
@@ -371,7 +382,7 @@ export default function NoteEditor({ note, onUpdate }: NoteEditorProps) {
 
         {/* History Panel */}
         {showHistory && (
-          <div className="w-80 border-l border-muted/30 bg-muted/5 flex flex-col animate-in slide-in-from-right duration-300">
+          <div className="w-64 lg:w-80 border-l border-muted/50 bg-background/80 backdrop-blur-xl flex flex-col shrink-0 shadow-[-4px_0_24px_rgba(0,0,0,0.02)] animate-in slide-in-from-right duration-300 z-10">
             <div className="p-6 border-b border-muted/30 flex items-center justify-between">
               <h4 className="font-bold text-sm flex items-center gap-2">
                 <History className="w-4 h-4 text-primary" /> Past Sessions

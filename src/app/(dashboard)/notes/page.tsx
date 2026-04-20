@@ -87,9 +87,9 @@ export default function NotesPage() {
   )
 
   return (
-    <div className="flex bg-background h-[calc(100vh-6rem)] rounded-3xl border border-muted/50 overflow-hidden shadow-sm animate-in fade-in zoom-in-95 duration-500">
+    <div className="flex bg-card/40 backdrop-blur-md h-[calc(100vh-8rem)] min-h-[500px] rounded-[2.5rem] border border-muted/50 overflow-hidden shadow-xl shadow-black/5 animate-in fade-in zoom-in-95 duration-500 isolation-auto">
       {/* Inner Sidebar for Notes */}
-      <div className="w-80 bg-muted/10 border-r border-muted/50 flex flex-col shrink-0">
+      <div className="w-64 md:w-80 bg-background/60 backdrop-blur-xl border-r border-muted/50 flex flex-col shrink-0 z-10 transition-all">
         <div className="p-4 border-b border-muted/50">
            <button 
              onClick={createNewNote}
@@ -152,7 +152,7 @@ export default function NotesPage() {
       </div>
 
       {/* Main Editor Space */}
-      <div className="flex-1 bg-card">
+      <div className="flex-1 flex flex-col bg-transparent min-w-0 relative">
         {activeNote ? (
           <NoteEditor 
             key={activeNote.id} 
