@@ -10,12 +10,20 @@ type Task = {
   title: string
   is_completed: boolean
   created_at: string
+  deadline?: string
 }
 
 export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [newTaskTitle, setNewTaskTitle] = useState('')
   const [loading, setLoading] = useState(true)
+  
+  // Date Picker States
+  const [showDatePicker, setShowDatePicker] = useState(false)
+  const [pendingTaskTitle, setPendingTaskTitle] = useState('')
+  const [appendedAt, setAppendedAt] = useState<Date | null>(null)
+  const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth())
+  const [selectedDay, setSelectedDay] = useState<number>(new Date().getDate())
   
   const { user } = useUserStore()
   const supabase = createClient()
@@ -32,19 +40,56 @@ export default function TasksPage() {
     setLoading(false)
   }
 
-  const handleAdd = async (e: React.FormEvent) => {
+  const handleAdd = (e: React.FormEvent) => {
     e.preventDefault()
     if (!user || !newTaskTitle.trim()) return
+    
+    // Step 5: Intercept to show Deadline Date Picker Modal
+    setPendingTaskTitle(newTaskTitle.trim())
+    setAppendedAt(new Date())
+    setShowDatePicker(true)
+  }
 
-    const { data } = await supabase.from('tasks').insert({
+  const submitWithDeadline = async () => {
+    if (!user) return
+    
+    console.log("Confirm button clicked. Selected Month:", selectedMonth, "Selected Day:", selectedDay)
+    
+    // Step 7 trigger: ask notification permission first time
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+        Notification.requestPermission()
+      }
+    }
+
+    // Step 4 & 6: creation time captured exactly when 'Append' was pressed; inherited into deadline setup
+    const creationDate = appendedAt || new Date()
+    const deadlineDate = new Date()
+    
+    deadlineDate.setFullYear(creationDate.getFullYear())
+    deadlineDate.setMonth(selectedMonth)
+    deadlineDate.setDate(selectedDay)
+    deadlineDate.setHours(creationDate.getHours(), creationDate.getMinutes(), 0, 0)
+    
+    const { data, error } = await supabase.from('tasks').insert({
       user_id: user.id,
-      title: newTaskTitle,
-      is_completed: false
+      title: pendingTaskTitle,
+      is_completed: false,
+      created_at: creationDate.toISOString(),
+      deadline: deadlineDate.toISOString() 
     }).select().single()
+
+    if (error) {
+      console.error("Failed to insert task:", error)
+      alert(`Error saving task: ${error.message}`)
+      return
+    }
 
     if (data) {
       setTasks([data, ...tasks])
       setNewTaskTitle('')
+      setPendingTaskTitle('')
+      setShowDatePicker(false)
     }
   }
 
@@ -120,17 +165,20 @@ export default function TasksPage() {
                         : 'bg-background border-muted/50 hover:border-primary/40 hover:shadow-sm'
                     }`}
                   >
-                    <div className="flex items-center gap-4 min-w-0">
-                      <button className="shrink-0 group-hover:scale-110 transition-transform">
-                        {task.is_completed ? (
-                          <CheckCircle2 className="w-6 h-6 text-accent" />
-                        ) : (
-                          <Circle className="w-6 h-6 text-muted-foreground/30" />
-                        )}
-                      </button>
+                    <div className="flex flex-col min-w-0 flex-1">
                       <span className={`text-lg font-semibold truncate transition-all duration-300 ${task.is_completed ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
                         {task.title}
                       </span>
+                      {/* Displaying Creation & Deadline Timestamps */}
+                      <div className="flex items-center gap-2 mt-1 text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">
+                        <span>Created at {new Date(task.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</span>
+                        {task.deadline && (
+                          <>
+                            <span className="opacity-50">•</span>
+                            <span className="text-primary/70">Deadline: {new Date(task.deadline).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</span>
+                          </>
+                        )}
+                      </div>
                     </div>
                     <button 
                       onClick={(e) => deleteTask(task.id, e)}
@@ -177,6 +225,58 @@ export default function TasksPage() {
             </div>
           </div>
 
+        </div>
+      )}
+
+      {/* Checklist Deadline Date Picker Modal */}
+      {showDatePicker && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-card border border-muted/50 shadow-2xl rounded-3xl p-8 w-[400px]">
+            <h3 className="text-xl font-bold mb-4 text-foreground">Select Deadline</h3>
+            <p className="text-sm text-muted-foreground mb-6 font-medium">
+              Choose a deadline date for <span className="text-foreground tracking-tight">&quot;{pendingTaskTitle}&quot;</span>. The time will be automatically matched to creation.
+            </p>
+            
+            <div className="flex gap-4">
+              <select 
+                title="Mon"
+                value={selectedMonth}
+                onChange={e => setSelectedMonth(Number(e.target.value))}
+                className="flex-1 px-4 py-3 rounded-xl bg-muted/20 border border-muted/50 focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground font-semibold appearance-none"
+              >
+                {Array.from({ length: 12 }).map((_, i) => (
+                  <option key={i} value={i}>
+                    {new Date(2000, i, 1).toLocaleString('default', { month: 'short' })}
+                  </option>
+                ))}
+              </select>
+              <select 
+                title="Day"
+                value={selectedDay}
+                onChange={e => setSelectedDay(Number(e.target.value))}
+                className="flex-1 px-4 py-3 rounded-xl bg-muted/20 border border-muted/50 focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground font-semibold appearance-none"
+              >
+                {Array.from({ length: 31 }).map((_, i) => (
+                  <option key={i} value={i + 1}>{i + 1}</option>
+                ))}
+              </select>
+            </div>
+            
+            <div className="flex justify-end gap-3 mt-8">
+              <button 
+                onClick={() => setShowDatePicker(false)} 
+                className="px-5 py-2.5 text-sm font-bold text-muted-foreground hover:bg-muted/30 rounded-xl transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={submitWithDeadline} 
+                className="bg-primary text-primary-foreground px-6 py-2.5 rounded-xl text-sm font-extrabold shadow-md hover:opacity-90 active:scale-95 transition-all"
+              >
+                Confirm Deadline
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

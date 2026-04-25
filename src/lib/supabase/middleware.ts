@@ -41,7 +41,7 @@ export async function updateSession(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
 
   // Define URLs that require authentication
-  const protectedRoutes = ['/dashboard', '/notes', '/tasks', '/flashcards']
+  const protectedRoutes = ['/workspace', '/notes', '/tasks', '/flashcards']
   const isProtectedRoute = protectedRoutes.some(route => request.nextUrl.pathname.startsWith(route))
 
   // Redirect to login if user is unauthenticated and accesses a protected route
@@ -56,7 +56,7 @@ export async function updateSession(request: NextRequest) {
   // If already logged in and visiting login, send straight to dashboard
   if (user && (request.nextUrl.pathname === '/login' || request.nextUrl.pathname === '/signup')) {
     const url = request.nextUrl.clone()
-    url.pathname = '/dashboard'
+    url.pathname = '/workspace'
     return NextResponse.redirect(url)
   }
 

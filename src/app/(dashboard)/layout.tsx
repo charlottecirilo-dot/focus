@@ -1,4 +1,5 @@
 import { Sidebar } from '@/components/layout/Sidebar'
+import NotificationPoller from '@/components/NotificationPoller'
 
 // This layout wraps all protected routes (Dashboard, Notes, Tasks) 
 // to provide the global sidebar and consistent page structure.
@@ -15,6 +16,7 @@ export default function DashboardLayout({
           {children}
         </div>
       </main>
+      <NotificationPoller />
     </div>
   )
 }

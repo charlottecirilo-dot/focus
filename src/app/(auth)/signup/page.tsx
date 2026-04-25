@@ -41,7 +41,7 @@ export default function SignUpPage() {
       
       <div className="glass max-w-md w-full p-8 rounded-2xl relative z-10 mx-4">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-extrabold text-primary-foreground tracking-tight">Join FOCUS</h1>
+          <h1 className="text-3xl font-extrabold text-foreground tracking-tight">Join FOCUS</h1>
           <p className="text-muted-foreground mt-2 text-sm">Create an account to start studying effectively.</p>
         </div>
 

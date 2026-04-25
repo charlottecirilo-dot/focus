@@ -32,7 +32,7 @@ export default function LoginPage() {
       setLoading(false)
     } else {
       // If success, push the router to dashboard and refresh state
-      router.push('/dashboard')
+      router.push('/workspace')
       router.refresh()
     }
   }
@@ -45,7 +45,7 @@ export default function LoginPage() {
       
       <div className="glass max-w-md w-full p-8 rounded-2xl relative z-10 mx-4">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-extrabold text-primary-foreground tracking-tight">Welcome to FOCUS</h1>
+          <h1 className="text-3xl font-extrabold text-foreground tracking-tight">Welcome to FOCUS</h1>
           <p className="text-muted-foreground mt-2 text-sm">Sign in to sync your study tools</p>
         </div>
 

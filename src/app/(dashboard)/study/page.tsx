@@ -3,17 +3,15 @@
 import { useState } from 'react'
 import Flashcards from '@/components/study/Flashcards'
 import Summarizer from '@/components/study/Summarizer'
-import FileUpload from '@/components/study/FileUpload'
-import { BrainCircuit, FileText, Upload } from 'lucide-react'
+import { BrainCircuit, FileText } from 'lucide-react'
 
-// Layout host for the Study module handling 3 embedded views via tabs
+// Layout host for the Study module handling 2 embedded views via tabs
 export default function StudyToolsPage() {
-  const [activeTab, setActiveTab] = useState<'flashcards' | 'summarizer' | 'upload'>('flashcards')
+  const [activeTab, setActiveTab] = useState<'flashcards' | 'summarizer'>('flashcards')
 
   const tabs = [
     { id: 'flashcards', name: 'Flashcards', icon: BrainCircuit },
     { id: 'summarizer', name: 'AI Summarizer', icon: FileText },
-    { id: 'upload', name: 'File Upload', icon: Upload },
   ] as const
 
   return (
@@ -44,7 +42,6 @@ export default function StudyToolsPage() {
         {/* Render appropriate component conditionally based on active tab state */}
         {activeTab === 'flashcards' && <Flashcards />}
         {activeTab === 'summarizer' && <Summarizer />}
-        {activeTab === 'upload' && <FileUpload />}
       </div>
     </div>
   )

@@ -17,15 +17,15 @@
   }
 
   .dark {
-    --background: #120e10;
+    --background: #110d0f;
     --foreground: #f4ecf0;
-    --primary: #c797a4;
-    --primary-foreground: #1c0e12;
-    --accent: #ac83b6;
-    --accent-foreground: #1f0f2b;
-    --muted: #2b2225;
-    --muted-foreground: #a6989e;
-    --card: #1c1619;
+    --primary: #e8a0b4;        /* Brighter pink for dark mode */
+    --primary-foreground: #f8e8ee; /* Light pink text — readable on dark */
+    --accent: #c9a0d8;         /* Brighter purple for dark mode */
+    --accent-foreground: #ead4f4;  /* Light purple text — readable on dark */
+    --muted: #2a2024;
+    --muted-foreground: #b0a3a8;
+    --card: #1e181b;           /* Slightly brighter card */
     --card-foreground: #f4ecf0;
   }
 }
