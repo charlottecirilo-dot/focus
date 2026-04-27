@@ -43,7 +43,7 @@ export default function WorkspacePage() {
       )}
 
       {/* Board */}
-      <div className="bg-card/30 backdrop-blur-md rounded-[2.5rem] border border-muted/50 p-6 md:p-8 shadow-sm overflow-hidden shrink-0 min-h-[400px]">
+      <div className="bg-card rounded-[2.5rem] border border-muted/50 p-6 md:p-8 shadow-sm overflow-hidden shrink-0 min-h-[400px]">
         <KanbanBoard />
       </div>
     </div>

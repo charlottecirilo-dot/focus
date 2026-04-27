@@ -26,7 +26,7 @@ export default function SettingsPage() {
 
       <div className="grid gap-8 mt-4">
         {/* Profile Card mapping Supabase User details */}
-        <div className="bg-card/60 backdrop-blur-xl rounded-[2.5rem] border border-muted/50 p-8 md:p-10 shadow-sm transition-all hover:shadow-md">
+        <div className="bg-card rounded-[2.5rem] border border-muted/50 p-8 md:p-10 shadow-sm transition-all hover:shadow-md">
           <div className="flex items-center gap-5 mb-8">
             <div className="w-16 h-16 bg-primary/20 rounded-2xl flex items-center justify-center">
               <User className="w-8 h-8 text-primary" />
@@ -48,7 +48,7 @@ export default function SettingsPage() {
         </div>
 
         {/* Display Settings integrating next-themes */}
-        <div className="bg-card/60 backdrop-blur-xl rounded-[2.5rem] border border-muted/50 p-8 md:p-10 shadow-sm transition-all hover:shadow-md">
+        <div className="bg-card rounded-[2.5rem] border border-muted/50 p-8 md:p-10 shadow-sm transition-all hover:shadow-md">
           <div className="mb-8">
              <h3 className="text-2xl font-bold text-foreground">Aesthetic Appearance</h3>
              <p className="text-base text-muted-foreground mt-1">Configure interface color mode dynamics to match your preferences.</p>

@@ -43,7 +43,7 @@
   }
   
   .glass {
-    @apply bg-white/60 dark:bg-black/60 backdrop-blur-md border border-white/20 dark:border-white/10 shadow-sm;
+    @apply bg-white dark:bg-black border border-white/20 dark:border-white/10 shadow-sm;
   }
 
   .perspective-1000 {

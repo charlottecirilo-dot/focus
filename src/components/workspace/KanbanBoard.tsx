@@ -155,7 +155,7 @@ export default function KanbanBoard() {
           {/* Column Body */}
           <div className="flex-1 space-y-3 overflow-y-auto pr-1 scrollbar-hide">
             {column.tasks.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-64 bg-card/30 backdrop-blur-sm rounded-2xl border-2 border-dashed border-muted/50 text-center p-6">
+              <div className="flex flex-col items-center justify-center h-64 bg-card rounded-2xl border-2 border-dashed border-muted/50 text-center p-6">
                 <FileText className="w-10 h-10 text-muted-foreground/30 mb-4" />
                 <p className="text-sm text-muted-foreground font-semibold mb-1">
                   No items yet

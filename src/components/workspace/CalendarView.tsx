@@ -24,7 +24,7 @@ export default function CalendarView() {
       if (data) setTasks(data)
     }
     fetchTasks()
-  }, [supabase])
+  }, []) // Removed supabase from array to prevent cascade loops
 
   const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate()
   const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay()
@@ -75,7 +75,7 @@ export default function CalendarView() {
   }
 
   return (
-    <div className="flex flex-col w-full bg-card/10 backdrop-blur-md rounded-3xl border border-muted/30 p-6 shadow-sm">
+    <div className="flex flex-col w-full bg-card rounded-3xl border border-muted/30 p-6 shadow-sm">
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-extrabold flex items-center gap-2">
           <CalendarIcon className="text-primary w-6 h-6"/> Timeline
@@ -87,7 +87,7 @@ export default function CalendarView() {
         </div>
       </div>
 
-      <div className="grid grid-cols-7 border border-muted/30 rounded-2xl overflow-hidden shadow-sm backdrop-blur-md">
+      <div className="grid grid-cols-7 border border-muted/30 rounded-2xl overflow-hidden shadow-sm bg-card">
         {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
           <div key={day} className="text-center py-3 bg-muted/30 border-b border-muted/30 text-xs font-extrabold text-muted-foreground uppercase tracking-wider">
             {day}
@@ -98,7 +98,7 @@ export default function CalendarView() {
 
       {/* Task Details Modal */}
       {selectedTask && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-md animate-in fade-in zoom-in-95 duration-200 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/90 animate-in fade-in zoom-in-95 duration-200 p-4">
           <div className="bg-card border border-muted/50 shadow-2xl rounded-3xl p-8 max-w-lg w-full">
             <h3 className="text-2xl font-extrabold mb-6 text-foreground leading-tight break-words">{selectedTask.title}</h3>
             

@@ -478,7 +478,7 @@ export default function NoteEditor({ note, onUpdate }: NoteEditorProps) {
 
         {/* History Panel */}
         {showHistory && (
-          <div className="w-64 lg:w-80 border-l border-muted/50 bg-background/80 backdrop-blur-xl flex flex-col shrink-0 shadow-[-4px_0_24px_rgba(0,0,0,0.02)] animate-in slide-in-from-right duration-300 z-10">
+          <div className="w-64 lg:w-80 border-l border-muted/50 bg-background flex flex-col shrink-0 shadow-[-4px_0_24px_rgba(0,0,0,0.02)] animate-in slide-in-from-right duration-300 z-10">
             <div className="p-6 border-b border-muted/30 flex items-center justify-between">
               <h4 className="font-bold text-sm flex items-center gap-2">
                 <History className="w-4 h-4 text-primary" /> Past Sessions

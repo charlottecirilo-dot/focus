@@ -101,7 +101,7 @@ export default function Summarizer() {
   return (
     <div className="h-full flex flex-col lg:flex-row animate-in fade-in duration-300">
       {/* Left Input Half */}
-      <div className="w-full lg:w-1/2 p-6 lg:p-10 border-b lg:border-b-0 lg:border-r border-muted/50 flex flex-col h-full bg-background/60 backdrop-blur-md rounded-t-[2rem] lg:rounded-tr-none lg:rounded-l-[2rem] z-10">
+      <div className="w-full lg:w-1/2 p-6 lg:p-10 border-b lg:border-b-0 lg:border-r border-muted/50 flex flex-col h-full bg-background rounded-t-[2rem] lg:rounded-tr-none lg:rounded-l-[2rem] z-10">
 
         {/* File Upload Zone */}
         <div className="mb-5">

@@ -108,7 +108,7 @@ export default function NotificationPoller() {
     const interval = setInterval(checkDeadlines, 30000)
     
     return () => clearInterval(interval)
-  }, [user, supabase])
+  }, [user?.id]) // Removed volatile `supabase` client to stop infinite loop
 
   return null
 }

@@ -22,7 +22,7 @@ export default function KanbanCard({ task }: { task: KanbanTask }) {
   const Icon = iconMap[task.icon]
 
   return (
-    <div className={`bg-card/70 backdrop-blur-md rounded-2xl border border-muted/50 p-5 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 group cursor-grab active:cursor-grabbing active:shadow-lg ${task.isCompleted ? 'opacity-60' : ''}`}>
+    <div className={`bg-card rounded-2xl border border-muted/50 p-5 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 group cursor-grab active:cursor-grabbing active:shadow-lg ${task.isCompleted ? 'opacity-60' : ''}`}>
       {/* Category & Icon Row */}
       <div className="flex items-start justify-between mb-3">
         <span className="text-[11px] font-bold tracking-wide uppercase text-muted-foreground bg-muted/50 px-3 py-1 rounded-lg border border-muted/50 truncate max-w-[200px]">
