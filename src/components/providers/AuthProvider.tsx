@@ -1,29 +1,73 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useUserStore } from '@/lib/store/useUserStore'
+import { usePathname } from 'next/navigation'
 
-// This provider wraps the application and syncs the current Supabase session inside the Zustand store
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { setUser, clearUser } = useUserStore()
-  const supabase = createClient()
+  const [supabase] = useState(() => createClient())
+  const pathname = usePathname()
+  const isMounted = useRef(true)
+  const isLoading = useRef(false)
 
   useEffect(() => {
-    // Fetches the current logged-in user
+    isMounted.current = true
+
     const loadUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        setUser(user)
-      } else {
-        clearUser()
+      // Prevent concurrent requests
+      if (isLoading.current) return
+
+      isLoading.current = true
+
+      try {
+        // First check if we have a session to avoid AuthSessionMissingError logs
+        const { data: { session } } = await supabase.auth.getSession()
+        
+        if (!session) {
+          if (isMounted.current) {
+            clearUser()
+          }
+          return
+        }
+
+        const { data: { user }, error } = await supabase.auth.getUser()
+        
+        if (error) {
+          // Only log if it's not a missing session error
+          if (error.name !== 'AuthSessionMissingError') {
+            console.error('Error loading user:', error)
+          }
+          if (isMounted.current) {
+            clearUser()
+          }
+          return
+        }
+
+        if (isMounted.current) {
+          if (user) {
+            setUser(user)
+          } else {
+            clearUser()
+          }
+        }
+      } catch (error) {
+        console.error('Auth error:', error)
+        if (isMounted.current) {
+          clearUser()
+        }
+      } finally {
+        isLoading.current = false
       }
     }
 
     loadUser()
 
-    // Listen to ongoing authentication state changes (login, logout, token refresh)
+    // Listen to auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!isMounted.current) return
+
       if (session?.user) {
         setUser(session.user)
       } else {
@@ -31,8 +75,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     })
 
-    // Clean up subscription upon component unmounting
     return () => {
+      isMounted.current = false
+      isLoading.current = false
       subscription.unsubscribe()
     }
   }, [supabase, setUser, clearUser])

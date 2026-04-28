@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Mic, MicOff, Save, Check, Globe, History, ChevronDown, ChevronUp, PlusCircle, Volume2, AlertCircle, Loader2 } from 'lucide-react'
+import { Mic, MicOff, Save, Check, Globe, History, ChevronDown, ChevronUp, PlusCircle, Volume2, AlertCircle, Loader2, Sparkles, FileText } from 'lucide-react'
 
 // Enhanced types for transcription tracking
 type TranscriptSession = {
@@ -23,11 +23,15 @@ interface NoteEditorProps {
 }
 
 const LANGUAGES = [
-  { code: 'en-US', name: 'English (US)' },
-  { code: 'en-GB', name: 'English (UK)' },
-  { code: 'fil-PH', name: 'Filipino' },
-  { code: 'es-ES', name: 'Spanish' },
-  { code: 'ja-JP', name: 'Japanese' },
+  { code: 'en-US', name: 'English (US)', flag: '🇺🇸' },
+  { code: 'en-GB', name: 'English (UK)', flag: '🇬🇧' },
+  { code: 'fil-PH', name: 'Filipino / Tagalog', flag: '🇵🇭' },
+  { code: 'zh-CN', name: 'Chinese (Simplified)', flag: '🇨🇳' },
+  { code: 'es-ES', name: 'Spanish', flag: '🇪🇸' },
+  { code: 'fr-FR', name: 'French', flag: '🇫🇷' },
+  { code: 'de-DE', name: 'German', flag: '🇩🇪' },
+  { code: 'ja-JP', name: 'Japanese', flag: '🇯🇵' },
+  { code: 'ko-KR', name: 'Korean', flag: '🇰🇷' },
 ]
 
 export default function NoteEditor({ note, onUpdate }: NoteEditorProps) {
@@ -46,7 +50,9 @@ export default function NoteEditor({ note, onUpdate }: NoteEditorProps) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null)
   const [isTranslating, setIsTranslating] = useState(false)
+  const [autoTranslate, setAutoTranslate] = useState(true)
   const [translationError, setTranslationError] = useState(false)
+  const [showLanguageDropdown, setShowLanguageDropdown] = useState(false)
 
   // Stable refs for queue processing
   const currentSessionRef = useRef<TranscriptSession | null>(null)
@@ -73,42 +79,31 @@ export default function NoteEditor({ note, onUpdate }: NoteEditorProps) {
 
       let finalChunk = textToSafelyProcess
 
-      try {
-        // Format ISO mappings for MyMemory (it prefers simple codes)
-        const formatLang = (code: string) => {
-          if (code === 'fil-PH') return 'tl' // Tagalog reference
-          if (code === 'ja-JP') return 'ja'
-          if (code === 'es-ES') return 'es'
-          if (code.startsWith('en')) return 'en'
-          return code.split('-')[0]
-        }
+      if (autoTranslate) {
+        try {
+          const res = await fetch('/api/translate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              text: textToSafelyProcess,
+              targetLanguage: langRef.current
+            })
+          })
 
-        const targetLangCode = formatLang(langRef.current)
-
-        // Step 2 & 3: Send to MyMemory with Autodetect source
-        const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(textToSafelyProcess)}&langpair=Autodetect|${targetLangCode}`
-        const res = await fetch(url)
-
-        if (!res.ok) throw new Error('Translation API failed')
-
-        const data = await res.json()
-
-        if (data && data.responseData && data.responseData.translatedText) {
-          const translatedText = data.responseData.translatedText
-
-          // Skip substitution if it threw an error string payload back
-          if (translatedText.includes('MYMEMORY WARNING:')) {
-            throw new Error('API Rate Limit')
+          if (res.status === 503) {
+            // Silently fall back
+          } else if (!res.ok) {
+            throw new Error('Translation API failed')
+          } else {
+            const data = await res.json()
+            if (data?.translatedText) {
+              finalChunk = data.translatedText
+            }
           }
-
-          finalChunk = translatedText
-        } else {
-          throw new Error('Invalid translation payload')
+        } catch (err) {
+          console.error('Translation queue error:', err)
+          setTranslationError(true)
         }
-      } catch (err) {
-        console.error('Translation queue error:', err)
-        setTranslationError(true)
-        // Step 5: Fallback is to leave finalChunk as the original textToSafelyProcess
       }
 
       try {
@@ -143,7 +138,7 @@ export default function NoteEditor({ note, onUpdate }: NoteEditorProps) {
     isProcessingQueue.current = false
   }
 
-  const supabase = createClient()
+  const [supabase] = useState(() => createClient())
   const contentRef = useRef<HTMLDivElement>(null)
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const [recognition, setRecognition] = useState<any>(null) // Browser SpeechRecognition is untyped
@@ -187,7 +182,7 @@ export default function NoteEditor({ note, onUpdate }: NoteEditorProps) {
       }
     }
     fetchSessions()
-  }, [note.id, supabase])
+  }, [note.id])
 
   // Configure Web Speech API
   useEffect(() => {
@@ -232,10 +227,13 @@ export default function NoteEditor({ note, onUpdate }: NoteEditorProps) {
 
             if (prev && prev.text.trim()) {
               const duration = Math.round((Date.now() - prev.startedAt.getTime()) / 1000)
+              const { data: { user: authUser } } = await supabase.auth.getUser()
+              if (!authUser) return
+
               const { data: dbData, error } = await supabase
                 .from('transcription_sessions')
                 .insert({
-                  user_id: (await supabase.auth.getUser()).data.user?.id,
+                  user_id: authUser.id,
                   note_id: note.id,
                   transcript: prev.text,
                   language: prev.language,
@@ -261,23 +259,21 @@ export default function NoteEditor({ note, onUpdate }: NoteEditorProps) {
         }, 500)
       }
 
-      rec.onerror = (event: any) => { // SpeechRecognitionErrorEvent is untyped
+      rec.onerror = (event: any) => {
         setIsRecording(false)
         const errorMap: Record<string, string> = {
-          'not-allowed': "Microphone access was denied. Please allow microphone permissions in your browser settings.",
-          'audio-capture': "No microphone was found. Please connect a microphone and try again.",
-          'no-speech': "No speech was detected. Please try speaking again.",
-          'network': "A network error occurred. Please check your connection."
+          'not-allowed': "Microphone access denied.",
+          'audio-capture': "Microphone not found.",
+          'no-speech': "No speech detected.",
+          'network': "Network error."
         }
-        const message = errorMap[event.error] || "Speech recognition failed. Please try again or use Google Chrome."
-
-        setErrorMessage(message)
-        setTimeout(() => setErrorMessage(null), 5000)
+        setErrorMessage(errorMap[event.error] || "Recognition failed.")
+        setTimeout(() => setErrorMessage(null), 3000)
       }
 
       setRecognition(rec)
     }
-  }, [selectedLanguage, title, note.id, supabase])
+  }, [selectedLanguage, title, note.id])
 
   const toggleRecording = () => {
     if (isRecording) {
@@ -344,92 +340,159 @@ export default function NoteEditor({ note, onUpdate }: NoteEditorProps) {
     <div className="flex flex-col h-full bg-card rounded-r-3xl animate-in fade-in duration-300 relative overflow-hidden">
 
       {/* Toolbar */}
-      <div className="flex flex-col border-b border-muted/30">
-        <div className="flex items-center justify-between p-6">
+      <div className="flex flex-col border-b border-muted/20 bg-background/50 backdrop-blur-md z-30">
+        <div className="flex items-center justify-between px-8 py-5">
+          
           <div className="flex items-center gap-6">
-            <div className="flex gap-4 text-sm text-muted-foreground">
-              {saving ? (
-                <span className="flex items-center gap-1.5 font-medium"><Save className="w-4 h-4 animate-pulse" /> Auto-saving...</span>
-              ) : lastSaved ? (
-                <span className="flex items-center gap-1.5 font-medium"><Check className="w-4 h-4 text-emerald-500" /> Saved</span>
-              ) : null}
+            <div className="flex items-center gap-2">
+               <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                 <FileText className="w-4 h-4 text-primary" />
+               </div>
+               <div className="flex flex-col">
+                 <span className="text-[10px] font-black uppercase text-muted-foreground tracking-[0.2em] leading-none mb-1">Editor Session</span>
+                 {saving ? (
+                   <span className="text-xs font-bold text-foreground/60 flex items-center gap-1.5 animate-pulse">
+                     <Save className="w-3 h-3" /> Syncing...
+                   </span>
+                 ) : (
+                   <span className="text-xs font-bold text-emerald-600 flex items-center gap-1.5">
+                     <Check className="w-3 h-3" /> System Ready
+                   </span>
+                 )}
+               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            {/* Step 5: Update the word count display to reflect the total note body */}
-            {(content.trim().length > 0) && (
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-accent/10 rounded-lg border border-accent/20 animate-in fade-in zoom-in-95">
-                <span className="text-[10px] font-black text-accent-foreground uppercase tracking-widest">
-                  {content.trim().split(/\s+/).length} Words
-                </span>
-              </div>
-            )}
+          <div className="flex items-center gap-4">
+            
+            {/* Translation Center */}
+            <div className="flex items-center bg-muted/30 p-1 rounded-[1.25rem] border border-muted/30 shadow-inner">
+               <button
+                 onClick={() => setAutoTranslate(!autoTranslate)}
+                 className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-300 text-[11px] font-black tracking-widest uppercase ${
+                   autoTranslate 
+                     ? 'bg-background text-primary shadow-sm' 
+                     : 'text-muted-foreground hover:bg-background/40'
+                 }`}
+               >
+                 <Sparkles className={`w-3.5 h-3.5 ${autoTranslate ? 'animate-sparkle' : ''}`} />
+                 {autoTranslate ? 'AI Translate On' : 'Translator Off'}
+               </button>
 
-            {translationError && (
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-red-50 rounded-lg border border-red-200 animate-in fade-in zoom-in-95" title="Showing your original spoken text.">
-                <AlertCircle className="w-3.5 h-3.5 text-red-500" />
-                <span className="text-[10px] font-black text-red-600 tracking-widest">Translation unavailable, showing original text</span>
-              </div>
-            )}
+               <div className="relative ml-1">
+                 <button 
+                   onClick={() => setShowLanguageDropdown(!showLanguageDropdown)}
+                   className={`flex items-center gap-3 px-4 py-2 rounded-xl transition-all duration-200 text-[11px] font-black tracking-widest uppercase ${
+                     showLanguageDropdown ? 'bg-primary text-primary-foreground' : 'text-foreground/70 hover:bg-background/40'
+                   }`}
+                 >
+                   <Globe className="w-3.5 h-3.5" />
+                   {LANGUAGES.find(l => l.code === selectedLanguage)?.name || 'Select Language'}
+                   <ChevronDown className={`w-3 h-3 transition-transform duration-300 ${showLanguageDropdown ? 'rotate-180' : ''}`} />
+                 </button>
 
-            {isTranslating && !translationError && (
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 rounded-lg border border-amber-200 animate-in fade-in zoom-in-95">
-                <Loader2 className="w-3.5 h-3.5 text-amber-500 animate-spin" />
-                <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest">Translating</span>
-              </div>
-            )}
+                 {showLanguageDropdown && (
+                   <>
+                     <div 
+                       className="fixed inset-0 z-40" 
+                       onClick={() => setShowLanguageDropdown(false)} 
+                     />
+                     <div className="absolute top-full mt-3 right-0 w-64 bg-background border border-muted/50 rounded-2xl shadow-[0_12px_40px_rgba(0,0,0,0.15)] p-2 z-50 animate-in fade-in zoom-in-95 duration-200 origin-top-right">
+                       <p className="px-3 py-2 text-[9px] font-black uppercase text-muted-foreground tracking-widest border-b border-muted/20 mb-1">Target Language</p>
+                       <div className="max-h-72 overflow-y-auto space-y-0.5 custom-scrollbar">
+                         {LANGUAGES.map(lang => (
+                           <button
+                             key={lang.code}
+                             onClick={() => {
+                               setSelectedLanguage(lang.code)
+                               setShowLanguageDropdown(false)
+                             }}
+                             className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-colors ${
+                               selectedLanguage === lang.code 
+                                 ? 'bg-primary/10 text-primary' 
+                                 : 'hover:bg-muted/50 text-foreground/70'
+                             }`}
+                           >
+                             <div className="flex items-center gap-3">
+                               <span className="text-base leading-none">{lang.flag}</span>
+                               <span>{lang.name}</span>
+                             </div>
+                             {selectedLanguage === lang.code && <Check className="w-3.5 h-3.5" />}
+                           </button>
+                         ))}
+                       </div>
+                     </div>
+                   </>
+                 )}
+               </div>
+            </div>
 
-            {!isRecording && isSpeechSupported && (
-              <div className="flex items-center gap-2 bg-muted/20 p-1 rounded-xl border border-muted/30">
-                <Globe className="w-4 h-4 text-muted-foreground ml-2" />
-                <select
-                  value={selectedLanguage}
-                  onChange={(e) => setSelectedLanguage(e.target.value)}
-                  className="bg-transparent text-xs font-bold text-foreground focus:outline-none pr-2 py-1 appearance-none cursor-pointer"
-                >
-                  <option value="en-US" className="text-black text-[15px] py-1 px-2">English (US)</option>
-                  <option value="en-GB" className="text-black text-[15px] py-1 px-2">English (UK)</option>
-                  <option value="fil-PH" className="text-black text-[15px] py-1 px-2">Filipino</option>
-                  <option value="es-ES" className="text-black text-[15px] py-1 px-2">Spanish</option>
-                  <option value="ja-JP" className="text-black text-[15px] py-1 px-2">Japanese</option>
-                </select>
-              </div>
-            )}
+            <div className="w-px h-8 bg-muted/40 mx-2" />
 
-            <button
-              onClick={() => setShowHistory(!showHistory)}
-              className={`p-2.5 rounded-xl transition-all ${showHistory ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted/50'}`}
-              title="Transcription History"
-            >
-              <History className="w-5 h-5" />
-            </button>
-
-            <button
-              onClick={toggleRecording}
-              disabled={!isSpeechSupported}
-              className={`flex items-center gap-2.5 px-5 py-2.5 rounded-xl text-sm font-bold transition-all shadow-sm ${isRecording
-                ? 'bg-red-500 text-white animate-pulse'
-                : 'bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50 disabled:grayscale'
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowHistory(!showHistory)}
+                className={`p-3 rounded-xl transition-all duration-200 ${
+                  showHistory 
+                    ? 'bg-primary text-primary-foreground shadow-sm' 
+                    : 'bg-muted/30 text-muted-foreground hover:bg-muted/50'
                 }`}
-            >
-              {isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-              {isRecording ? 'Stop Session' : 'Dictate'}
-            </button>
+                title="Session History"
+              >
+                <History className="w-5 h-5" />
+              </button>
+
+              <button
+                onClick={toggleRecording}
+                disabled={!isSpeechSupported}
+                className={`flex items-center gap-3 px-6 py-3 rounded-xl text-sm font-black uppercase tracking-widest transition-all duration-300 shadow-sm relative overflow-hidden group ${
+                  isRecording
+                    ? 'bg-red-500 text-white animate-pulse shadow-red-500/20'
+                    : 'bg-foreground text-background hover:scale-[1.02] active:scale-[0.98]'
+                } disabled:opacity-30 disabled:pointer-events-none`}
+              >
+                {isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                {isRecording ? 'Listening' : 'Start Dictate'}
+              </button>
+            </div>
+
           </div>
         </div>
 
-        {/* Browser Support Banner */}
+        {/* Dynamic Feedback Banners */}
+        <div className="flex items-center gap-4 px-8 pb-4">
+           {isTranslating && (
+             <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-500/10 border border-amber-500/20 rounded-lg animate-in slide-in-from-top-2">
+               <Loader2 className="w-3 h-3 text-amber-600 animate-spin" />
+               <span className="text-[9px] font-black text-amber-700 uppercase tracking-widest">AI Polishing & Translating</span>
+             </div>
+           )}
+           {translationError && (
+             <div className="flex items-center gap-2 px-3 py-1.5 bg-red-500/10 border border-red-500/20 rounded-lg animate-in slide-in-from-top-2">
+               <AlertCircle className="w-3 h-3 text-red-600" />
+               <span className="text-[9px] font-black text-red-700 uppercase tracking-widest">Translation offline — showing raw text</span>
+             </div>
+           )}
+           {isRecording && (
+             <div className="flex items-center gap-2 px-3 py-1.5 bg-red-500/10 border border-red-500/20 rounded-lg animate-in slide-in-from-top-2">
+               <div className="w-1.5 h-1.5 bg-red-600 rounded-full animate-ping" />
+               <span className="text-[9px] font-black text-red-700 uppercase tracking-widest">Voice Active</span>
+             </div>
+           )}
+           <div className="ml-auto flex items-center gap-2 opacity-40">
+              <Volume2 className="w-3.5 h-3.5" />
+              <span className="text-[9px] font-black uppercase tracking-[0.2em]">{content.trim().split(/\s+/).filter(Boolean).length} Words</span>
+           </div>
+        </div>
+
         {!isSpeechSupported && (
-          <div className="mx-6 mb-4 flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-700">
+          <div className="mx-8 mb-4 flex items-center gap-3 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700">
             <AlertCircle className="w-5 h-5 shrink-0" />
-            <p className="text-xs font-medium">Speech recognition is not available in your browser. Try Google Chrome or Microsoft Edge for the best experience.</p>
+            <p className="text-xs font-bold">Browser doesn&apos;t support dictation. Try Google Chrome.</p>
           </div>
         )}
-
-        {/* Inline Error Message */}
         {errorMessage && (
-          <div className="mx-6 mb-4 flex items-center gap-3 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 animate-in slide-in-from-top-2">
+          <div className="mx-8 mb-4 flex items-center gap-3 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 animate-in slide-in-from-top-2">
             <AlertCircle className="w-5 h-5 shrink-0" />
             <p className="text-xs font-bold">{errorMessage}</p>
           </div>

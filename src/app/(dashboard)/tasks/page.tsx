@@ -113,8 +113,11 @@ export default function TasksPage() {
   const progressPercentage = tasks.length === 0 ? 0 : Math.round((completedCount / tasks.length) * 100)
 
   return (
-    <div className="h-full flex flex-col space-y-6 animate-in fade-in duration-500 max-w-6xl mx-auto">
-      <div className="flex flex-col gap-2 mb-4">
+    <div className="h-full flex flex-col space-y-6 animate-in fade-in duration-500 max-w-6xl mx-auto relative z-0">
+      {/* Background Ambient Glows */}
+      <div className="absolute top-[-5%] left-[-10%] w-[500px] h-[500px] bg-primary/10 rounded-full blur-[120px] pointer-events-none -z-10 mix-blend-screen" />
+
+      <div className="flex flex-col gap-2 mb-4 relative z-10">
         <h1 className="text-4xl font-extrabold text-foreground tracking-tight">Task Manager</h1>
         <p className="text-muted-foreground text-lg">Organize your academic goals and track your execution progress.</p>
       </div>
@@ -125,47 +128,58 @@ export default function TasksPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
           
           {/* Main List Area */}
-          <div className="lg:col-span-2 bg-card rounded-[2.5rem] border border-muted/50 p-6 md:p-10 shadow-sm transition-all duration-300 hover:shadow-md">
-            <h3 className="text-2xl font-bold mb-8 text-foreground flex items-center gap-3">
-              <CheckCircle2 className="text-primary w-7 h-7" /> Your Checklist
+          <div className="lg:col-span-2 bg-card/60 backdrop-blur-sm rounded-[2.5rem] border border-muted/50 p-6 md:p-10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all duration-300 relative z-10 overflow-hidden">
+            <div className="absolute inset-x-0 -top-px h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
+            
+            <h3 className="text-2xl font-bold mb-8 text-foreground flex items-center gap-3 drop-shadow-sm">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/20 flex items-center justify-center shadow-inner">
+                 <CheckCircle2 className="text-primary w-5 h-5 drop-shadow-[0_0_8px_rgba(var(--primary),0.8)]" /> 
+              </div>
+              Your Checklist
             </h3>
             
-            <form onSubmit={handleAdd} className="flex gap-4 mb-8">
+            <form onSubmit={handleAdd} className="flex gap-4 mb-10 group relative">
+              <div className="absolute inset-0 bg-primary/5 rounded-2xl blur-xl opacity-0 group-focus-within:opacity-100 transition-opacity duration-500 -z-10" />
               <input 
                 type="text"
                 value={newTaskTitle}
                 onChange={e => setNewTaskTitle(e.target.value)}
                 placeholder="What needs to be done?"
-                className="flex-1 px-6 py-4 rounded-2xl bg-muted/20 border border-muted/50 focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground text-lg shadow-inner placeholder:text-muted-foreground/50 transition-shadow"
+                className="flex-1 px-6 py-4 rounded-2xl bg-card border border-muted/50 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 text-foreground text-lg shadow-sm placeholder:text-muted-foreground/50 transition-all hover:bg-card/80"
               />
               <button 
                 type="submit"
                 disabled={!newTaskTitle.trim()}
-                className="px-8 py-4 bg-foreground text-background font-bold rounded-2xl flex items-center gap-2 hover:opacity-90 disabled:opacity-50 transition-all shadow-md active:scale-95"
+                className="px-8 py-4 bg-gradient-to-r from-primary to-accent text-primary-foreground font-black rounded-2xl flex items-center gap-2 hover:opacity-90 disabled:opacity-30 disabled:pointer-events-none transition-all shadow-[0_4px_20px_rgba(var(--primary),0.2)] active:scale-[0.98] hover:shadow-[0_8px_25px_rgba(var(--primary),0.3)]"
               >
                 <Plus className="w-5 h-5" /> Append
               </button>
             </form>
 
-            <div className="space-y-3">
+            <div className="space-y-4">
               {tasks.length === 0 ? (
-                <div className="text-center py-20 px-4 border-2 border-dashed border-muted/50 rounded-[2rem]">
-                   <Target className="w-16 h-16 text-muted-foreground/30 mx-auto mb-4" />
-                   <p className="text-foreground font-bold text-xl">Your checklist is clear.</p>
-                   <p className="text-base text-muted-foreground mt-2 max-w-sm mx-auto">Add a new task above to start tracking your completion progress.</p>
+                <div className="text-center py-20 px-4 border border-muted/50 rounded-[2rem] bg-background/30 relative overflow-hidden group">
+                   <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                   <div className="w-20 h-20 rounded-full bg-muted/20 flex items-center justify-center mx-auto mb-6 shadow-inner relative z-10">
+                     <Target className="w-10 h-10 text-primary/40 drop-shadow-sm" />
+                   </div>
+                   <p className="text-foreground font-extrabold text-2xl mb-2 relative z-10 tracking-tight">Your checklist is clear</p>
+                   <p className="text-base text-muted-foreground font-medium max-w-sm mx-auto relative z-10">Add a new task above to start tracking your completion progress.</p>
                 </div>
               ) : (
                 tasks.map(task => (
                   <div 
                     key={task.id}
                     onClick={() => toggleTask(task)}
-                    className={`group flex items-center justify-between p-5 rounded-2xl border transition-all cursor-pointer ${
+                    className={`group flex items-center justify-between p-6 rounded-2xl border transition-all duration-300 cursor-pointer relative overflow-hidden ${
                       task.is_completed 
-                        ? 'bg-muted/10 border-muted/30 hover:border-muted/60 opacity-60' 
-                        : 'bg-background border-muted/50 hover:border-primary/40 hover:shadow-sm'
+                        ? 'bg-card/40 border-muted/30 opacity-60' 
+                        : 'bg-card border-muted/50 hover:border-primary/40 hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:hover:shadow-[0_8px_30px_rgba(255,255,255,0.02)] hover:-translate-y-0.5'
                     }`}
                   >
-                    <div className="flex flex-col min-w-0 flex-1">
+                    {!task.is_completed && <div className="absolute top-0 left-0 bottom-0 w-1 bg-gradient-to-b from-primary/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />}
+                    
+                    <div className="flex flex-col min-w-0 flex-1 pl-2">
                       <span className={`text-lg font-semibold truncate transition-all duration-300 ${task.is_completed ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
                         {task.title}
                       </span>
@@ -194,32 +208,37 @@ export default function TasksPage() {
 
           {/* Progress Tracker Widget Component Area */}
           <div className="lg:col-span-1 space-y-6 sticky top-8 z-10">
-            <div className="bg-gradient-to-br from-primary/10 via-background/60 to-accent/10 border border-primary/20 rounded-[2.5rem] p-8 shadow-sm">
-              <h3 className="text-2xl font-bold mb-2 text-foreground">Progress</h3>
-              <p className="text-sm text-muted-foreground mb-10 font-medium">Daily execution metrics reflecting checklist resolution.</p>
+            <div className="bg-card/80 backdrop-blur-md border border-muted/50 rounded-[2.5rem] p-8 shadow-[0_8px_40px_rgb(0,0,0,0.08)] relative overflow-hidden group">
+              <div className="absolute -top-10 -right-10 w-48 h-48 bg-primary/10 rounded-full blur-[60px] pointer-events-none group-hover:bg-primary/20 transition-all duration-700" />
               
-              <div className="flex items-end justify-between mb-3">
-                <span className="text-6xl font-extrabold text-foreground tracking-tighter">{progressPercentage}<span className="text-3xl text-muted-foreground">%</span></span>
-                <span className="text-[10px] font-extrabold text-primary-foreground/50 mb-2 uppercase tracking-widest bg-primary/20 px-2 py-1 rounded-full">Output Rate</span>
+              <h3 className="text-2xl font-bold mb-2 text-foreground relative z-10 tracking-tight">Progress</h3>
+              <p className="text-sm text-muted-foreground mb-10 font-medium relative z-10">Daily execution metrics reflecting checklist resolution.</p>
+              
+              <div className="flex items-end justify-between mb-4 relative z-10">
+                <span className="text-[4.5rem] leading-none font-black text-transparent bg-clip-text bg-gradient-to-r from-foreground to-foreground/70 tracking-tighter drop-shadow-sm">
+                  {progressPercentage}<span className="text-3xl text-primary">%</span>
+                </span>
+                <span className="text-[10px] font-black text-primary uppercase tracking-[0.2em] bg-primary/10 border border-primary/20 px-3 py-1.5 rounded-full mb-3">Output Rate</span>
               </div>
               
-              <div className="w-full bg-background/50 h-4 rounded-full overflow-hidden border border-muted/30 shadow-inner">
+              <div className="w-full bg-background/50 h-5 rounded-full overflow-hidden border border-muted/50 shadow-inner relative z-10">
                 <div 
-                  className="bg-accent h-full rounded-full transition-all duration-1000 ease-out relative overflow-hidden" 
+                  className="bg-gradient-to-r from-primary to-accent h-full rounded-full transition-all duration-1000 ease-out relative overflow-hidden" 
                   style={{ width: `${progressPercentage}%` }}
                 >
+                  <div className="absolute inset-0 bg-[url('/noise.png')] opacity-20 mix-blend-overlay" />
                   <div className="absolute inset-0 bg-white/20 w-full h-full" style={{ transform: 'skewX(-45deg)' }} />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 mt-10">
-                 <div className="bg-background/60 p-5 rounded-2xl border border-muted/20 shadow-sm text-center">
-                   <p className="text-[10px] font-extrabold text-muted-foreground uppercase tracking-widest mb-1">Resolved</p>
-                   <p className="text-3xl font-extrabold text-foreground">{completedCount}</p>
+              <div className="grid grid-cols-2 gap-4 mt-12 relative z-10">
+                 <div className="bg-background/80 p-6 rounded-[2rem] border border-muted/30 shadow-sm text-center group-hover:border-primary/20 transition-colors">
+                   <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em] mb-2">Resolved</p>
+                   <p className="text-4xl font-black text-foreground drop-shadow-sm">{completedCount}</p>
                  </div>
-                 <div className="bg-background/60 p-5 rounded-2xl border border-muted/20 shadow-sm text-center">
-                   <p className="text-[10px] font-extrabold text-muted-foreground uppercase tracking-widest mb-1">Pending</p>
-                   <p className="text-3xl font-extrabold text-foreground">{tasks.length - completedCount}</p>
+                 <div className="bg-background/80 p-6 rounded-[2rem] border border-muted/30 shadow-sm text-center group-hover:border-accent/20 transition-colors">
+                   <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em] mb-2">Pending</p>
+                   <p className="text-4xl font-black text-foreground drop-shadow-sm">{tasks.length - completedCount}</p>
                  </div>
               </div>
             </div>

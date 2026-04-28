@@ -9,9 +9,13 @@ export default function WorkspacePage() {
   const [isCalendarOpen, setIsCalendarOpen] = useState(false)
 
   return (
-    <div className="h-full flex flex-col animate-in fade-in duration-500 overflow-y-auto pb-10 scrollbar-hide">
+    <div className="h-full flex flex-col animate-in fade-in duration-500 overflow-y-auto pb-10 scrollbar-hide relative bg-transparent z-0">
+      {/* Ambient structural background lighting */}
+      <div className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] bg-primary/10 rounded-full blur-[120px] -z-10 pointer-events-none mix-blend-screen" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-accent/5 rounded-full blur-[100px] -z-10 pointer-events-none mix-blend-screen" />
+
       {/* Header */}
-      <div className="flex items-center justify-between mb-8 shrink-0">
+      <div className="flex items-center justify-between mb-10 shrink-0 relative z-10">
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/20 flex items-center justify-center shadow-sm">
@@ -43,7 +47,7 @@ export default function WorkspacePage() {
       )}
 
       {/* Board */}
-      <div className="bg-card rounded-[2.5rem] border border-muted/50 p-6 md:p-8 shadow-sm overflow-hidden shrink-0 min-h-[400px]">
+      <div className="flex-1 min-h-[400px] relative z-10 w-full overflow-hidden shrink-0 pb-10">
         <KanbanBoard />
       </div>
     </div>

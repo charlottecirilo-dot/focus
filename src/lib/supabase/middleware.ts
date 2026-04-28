@@ -38,7 +38,9 @@ export async function updateSession(request: NextRequest) {
   )
 
   // Fetch the active user session securely
-  const { data: { user } } = await supabase.auth.getUser()
+  // We use getUser() instead of getSession() for security as it validates the token with Supabase
+  const { data, error } = await supabase.auth.getUser()
+  const user = data?.user
 
   // Define URLs that require authentication
   const protectedRoutes = ['/workspace', '/notes', '/tasks', '/flashcards']

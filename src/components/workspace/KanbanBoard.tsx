@@ -153,14 +153,15 @@ export default function KanbanBoard() {
           </div>
 
           {/* Column Body */}
-          <div className="flex-1 space-y-3 overflow-y-auto pr-1 scrollbar-hide">
+          <div className="flex-1 space-y-4 overflow-y-auto pr-2 scrollbar-hide">
             {column.tasks.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-64 bg-card rounded-2xl border-2 border-dashed border-muted/50 text-center p-6">
-                <FileText className="w-10 h-10 text-muted-foreground/30 mb-4" />
-                <p className="text-sm text-muted-foreground font-semibold mb-1">
+              <div className="flex flex-col items-center justify-center h-48 bg-card/60 rounded-[2rem] border border-muted/50 text-center p-6 group transition-all duration-300 hover:border-primary/40 relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                <FileText className="w-10 h-10 text-muted-foreground/30 mb-4 group-hover:-translate-y-1 transition-transform group-hover:text-primary/70 relative z-10" />
+                <p className="text-sm text-foreground font-extrabold mb-1 relative z-10 tracking-tight">
                   No items yet
                 </p>
-                <p className="text-xs text-muted-foreground/60">
+                <p className="text-[11px] text-muted-foreground/80 font-semibold relative z-10">
                   Create items from their respective pages
                 </p>
               </div>

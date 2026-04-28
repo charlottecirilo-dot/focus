@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 
-const anthropic = new Anthropic({ 
-  apiKey: process.env.ANTHROPIC_API_KEY ?? '',
-})
-
 export async function POST(req: NextRequest) {
+  const apiKey = process.env.ANTHROPIC_API_KEY
+  if (!apiKey || apiKey === 'your_anthropic_api_key_here') {
+    return NextResponse.json({ error: 'Translation service is not configured.' }, { status: 503 })
+  }
+
+  const anthropic = new Anthropic({ apiKey })
+
   try {
     const { text, targetLanguage } = await req.json()
 

@@ -1,14 +1,16 @@
 'use client'
 
 import { useState, useRef, useCallback } from 'react'
-import { Wand2, Loader2, Sparkles, FileText, UploadCloud, CheckCircle2, BookOpen, ChevronRight } from 'lucide-react'
+import { 
+  Wand2, Loader2, Sparkles, FileText, UploadCloud, 
+  CheckCircle2, BookOpen, ChevronRight, X, FileUp, RotateCcw
+} from 'lucide-react'
 
 type SummarySection = {
   heading: string
   bullets: string[]
 }
 
-// Render a purely aesthetic/simulated summarizer
 export default function Summarizer() {
   const [inputText, setInputText] = useState('')
   const [isSummarizing, setIsSummarizing] = useState(false)
@@ -20,42 +22,30 @@ export default function Summarizer() {
   const [isExtracting, setIsExtracting] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // Core summarize logic — can be called programmatically or via form submit
-  const runSummarize = useCallback((text: string) => {
+  const runSummarize = useCallback(async (text: string) => {
     if (!text.trim()) return
     setSummary(null)
     setIsSummarizing(true)
 
-    // Simulate AI summarization with a structured result
-    setTimeout(() => {
-      setSummary([
-        {
-          heading: 'Core Concepts',
-          bullets: [
-            'Primary theme extracted from provided source material.',
-            'Key terms and definitions identified by the AI model.',
-            'Central argument or subject matter synthesized.',
-          ],
-        },
-        {
-          heading: 'Supporting Details',
-          bullets: [
-            'Evidence and examples drawn from the document.',
-            'Contextual information that supports the core thesis.',
-            'Relationships between sub-topics mapped and simplified.',
-          ],
-        },
-        {
-          heading: 'Key Takeaways',
-          bullets: [
-            'Actionable insight #1 distilled for learning efficiency.',
-            'Actionable insight #2 — review and connect to prior knowledge.',
-            'Suggested follow-up: explore linked topics for deeper understanding.',
-          ],
-        },
-      ])
+    try {
+      const res = await fetch('/api/summarize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text })
+      })
+      const data = await res.json()
+      
+      if (!res.ok) throw new Error(data.error || 'Failed to summarize')
+      
+      if (data.summary && Array.isArray(data.summary)) {
+        setSummary(data.summary)
+      }
+    } catch (err: any) {
+      console.error(err)
+      alert(err.message)
+    } finally {
       setIsSummarizing(false)
-    }, 2500)
+    }
   }, [])
 
   const handleSummarize = (e: React.FormEvent) => {
@@ -63,20 +53,33 @@ export default function Summarizer() {
     runSummarize(inputText)
   }
 
-  const processFile = (file: File) => {
+  const processFile = async (file: File) => {
     setUploadFile(file)
     setIsExtracting(true)
     setSummary(null)
 
-    // Step 1 + 2: Simulate server-side text extraction
-    setTimeout(() => {
-      const extracted = `Extracted content from "${file.name}": The document explores key concepts, methodologies, and findings relevant to the subject area. Dense academic language is simplified through AI analysis. Core ideas, supporting arguments, and actionable insights are identified for efficient knowledge retention via spaced repetition and active recall techniques.`
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      
+      const extractRes = await fetch('/api/extract-text', {
+        method: 'POST',
+        body: formData
+      })
+      const extractData = await extractRes.json()
+      
+      if (!extractRes.ok) throw new Error(extractData.error || 'Extraction failed')
+      
       setIsExtracting(false)
-      setInputText(extracted)
-
-      // Step 3: Immediately trigger summarization once text is ready
-      runSummarize(extracted)
-    }, 2000)
+      if (extractData.text) {
+        setInputText(extractData.text)
+        runSummarize(extractData.text)
+      }
+    } catch (err: any) {
+      console.error(err)
+      alert(err.message)
+      setIsExtracting(false)
+    }
   }
 
   const handleFileDrop = (e: React.DragEvent) => {
@@ -91,172 +94,166 @@ export default function Summarizer() {
     if (file) processFile(file)
   }
 
-  const handleReset = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    setUploadFile(null)
-    setInputText('')
-    setSummary(null)
-  }
+  const isBusy = isSummarizing || isExtracting
 
   return (
-    <div className="h-full flex flex-col lg:flex-row animate-in fade-in duration-300">
-      {/* Left Input Half */}
-      <div className="w-full lg:w-1/2 p-6 lg:p-10 border-b lg:border-b-0 lg:border-r border-muted/50 flex flex-col h-full bg-background rounded-t-[2rem] lg:rounded-tr-none lg:rounded-l-[2rem] z-10">
+    <div className="flex h-full bg-background animate-in fade-in duration-300">
+      
+      {/* ── Left Control Sidebar ── */}
+      <div className="w-80 shrink-0 border-r border-border bg-muted/20 flex flex-col">
+        
+        {/* Sidebar Header */}
+        <div className="px-6 py-5 border-b border-border">
+          <h2 className="font-bold text-sm text-foreground tracking-tight">Summary Tools</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">Synthesize documents into insights</p>
+        </div>
 
-        {/* File Upload Zone */}
-        <div className="mb-5">
-          <p className="text-[11px] font-extrabold uppercase tracking-widest text-muted-foreground mb-2.5">Upload Document</p>
-          <div
-            onDragOver={e => { e.preventDefault(); setIsDragging(true) }}
-            onDragLeave={e => { e.preventDefault(); setIsDragging(false) }}
-            onDrop={handleFileDrop}
-            onClick={() => !uploadFile && !isExtracting && fileInputRef.current?.click()}
-            className={`relative border-2 border-dashed rounded-2xl p-4 flex items-center gap-4 transition-all duration-300 cursor-pointer ${isDragging
-              ? 'border-accent bg-accent/5 scale-[1.01]'
-              : 'border-muted-foreground/20 hover:border-accent/40 hover:bg-muted/10 bg-background/40'
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          
+          {/* Document Upload */}
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground mb-3">Target Document</p>
+            <div
+              onDragOver={e => { e.preventDefault(); setIsDragging(true) }}
+              onDragLeave={e => { e.preventDefault(); setIsDragging(false) }}
+              onDrop={handleFileDrop}
+              onClick={() => !isBusy && !uploadFile && fileInputRef.current?.click()}
+              className={`relative border-2 border-dashed rounded-xl p-5 flex flex-col items-center justify-center text-center cursor-pointer transition-all duration-200 min-h-[120px] ${
+                isDragging ? 'border-primary bg-primary/5' : 'border-border hover:border-muted-foreground/40 hover:bg-muted/30 bg-card'
               }`}
-          >
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".pdf,.doc,.docx"
-              className="hidden"
-              onChange={handleFileSelect}
-            />
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${isDragging ? 'bg-accent/20' : 'bg-muted/30'
-              }`}>
-              {isExtracting
-                ? <Loader2 className="w-5 h-5 text-accent animate-spin" />
-                : uploadFile
-                  ? <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-                  : <UploadCloud className="w-5 h-5 text-muted-foreground/60" />
-              }
-            </div>
-            <div className="flex-1 min-w-0">
+            >
+              <input ref={fileInputRef} type="file" accept=".pdf,.doc,.docx" className="hidden" onChange={handleFileSelect} />
+
               {isExtracting ? (
-                <>
-                  <p className="text-sm font-bold text-foreground">Extracting text...</p>
-                  <p className="text-xs text-muted-foreground truncate">{uploadFile?.name}</p>
-                </>
+                <div className="space-y-2">
+                  <Loader2 className="w-6 h-6 text-primary animate-spin mx-auto" />
+                  <p className="text-xs font-semibold text-foreground">Reading file...</p>
+                </div>
               ) : uploadFile ? (
-                <>
-                  <p className="text-sm font-bold text-foreground truncate">{uploadFile.name}</p>
-                  <button
-                    onClick={handleReset}
-                    className="text-xs text-muted-foreground hover:text-foreground font-semibold underline underline-offset-2"
-                  >
-                    Remove file
-                  </button>
-                </>
+                <div className="space-y-2 w-full">
+                  <CheckCircle2 className="w-6 h-6 text-emerald-500 mx-auto" />
+                  <p className="text-xs font-semibold text-foreground truncate px-2">{uploadFile.name}</p>
+                  <button 
+                    onClick={e => { e.stopPropagation(); setUploadFile(null); setInputText('') }}
+                    className="text-[11px] text-primary font-semibold hover:underline"
+                  >Change document</button>
+                </div>
               ) : (
-                <>
-                  <p className="text-sm font-bold text-foreground">Drag &amp; drop or click to upload</p>
-                  <p className="text-xs text-muted-foreground">PDF or Word document • Text will auto-populate below</p>
-                </>
+                <div className="space-y-2">
+                  <FileUp className="w-6 h-6 text-muted-foreground mx-auto" />
+                  <p className="text-xs font-semibold text-foreground">Drop document to summarize</p>
+                  <p className="text-[11px] text-muted-foreground">PDF or Word</p>
+                </div>
               )}
             </div>
           </div>
-        </div>
 
-        <div className="border-t border-muted/40 mb-5" />
+          {/* Divider */}
+          <div className="border-t border-border" />
 
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 bg-accent/20 rounded-xl flex items-center justify-center">
-            <Sparkles className="w-5 h-5 text-accent-foreground" />
+          {/* Manual Input */}
+          <div className="flex-1 flex flex-col">
+            <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground mb-3">Copy-Paste Context</p>
+            <textarea
+              value={inputText}
+              onChange={e => setInputText(e.target.value)}
+              className="w-full flex-1 min-h-[200px] px-4 py-3 rounded-xl border border-border bg-card text-sm text-foreground resize-none focus:outline-none focus:ring-2 focus:ring-primary/30 transition-all placeholder:text-muted-foreground/40"
+              placeholder="Paste long-form text here..."
+            />
           </div>
-          <h3 className="font-extrabold text-2xl text-foreground">Paste Text</h3>
         </div>
 
-        <p className="text-base text-muted-foreground mb-6 leading-relaxed">
-          Paste your lecture transcripts, dense articles, or long notes here. The AI will synthesize it into core digestible concepts and bullet points.
-        </p>
-
-        <form onSubmit={handleSummarize} className="flex-1 flex flex-col relative">
-          <textarea
-            value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
-            className="flex-1 w-full p-6 rounded-3xl border border-muted/50 bg-card resize-none focus:outline-none focus:ring-2 focus:ring-accent/50 text-foreground text-lg leading-relaxed shadow-inner"
-            placeholder="E.g., The mitochondrion is a double-membrane-bound organelle found in most eukaryotic organisms..."
-          />
+        {/* Sidebar Footer */}
+        <div className="p-6 border-t border-border">
           <button
-            type="submit"
-            disabled={!inputText.trim() || isSummarizing || isExtracting}
-            className="absolute bottom-6 left-6 right-6 py-4 bg-accent text-accent-foreground font-extrabold rounded-2xl flex items-center justify-center gap-2 hover:bg-accent/90 disabled:opacity-50 transition-all shadow-md active:scale-[0.98]"
+            onClick={() => runSummarize(inputText)}
+            disabled={!inputText.trim() || isBusy}
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-primary text-primary-foreground font-bold text-sm disabled:opacity-40 disabled:pointer-events-none hover:opacity-90 transition-all shadow-sm"
           >
-            {isSummarizing ? <Loader2 className="w-6 h-6 animate-spin" /> : <Wand2 className="w-6 h-6" />}
-            {isSummarizing ? 'Analyzing context & synthesizing...' : 'Generate Core Summary'}
+            {isSummarizing ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Sparkles className="w-4 h-4" />
+            )}
+            {isSummarizing ? 'Synthesizing...' : 'Generate AI Summary'}
           </button>
-        </form>
+        </div>
       </div>
 
-      {/* Right Output Half */}
-      <div className="w-full lg:w-1/2 p-6 lg:p-10 bg-card flex flex-col relative overflow-y-auto">
-
-        {/* Step 4 — Loading state while AI processes */}
-        {(isExtracting || isSummarizing) ? (
-          <div className="text-center animate-pulse m-auto">
-            <div className="w-24 h-24 bg-accent/20 rounded-full flex items-center justify-center mx-auto mb-8 shadow-inner">
-              <Wand2 className="w-12 h-12 text-accent animate-bounce" />
-            </div>
-            <p className="text-3xl font-extrabold text-foreground mb-3">
-              {isExtracting ? 'Extracting document text...' : 'Generating summary...'}
-            </p>
-            <p className="text-muted-foreground text-base max-w-sm mx-auto">
-              {isExtracting
-                ? 'Parsing your document and preparing it for AI analysis.'
-                : 'Evaluating semantic tokens and reducing density for optimal learning.'}
-            </p>
+      {/* ── Main Results Panel ── */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-card">
+        
+        {/* Panel Header */}
+        <div className="flex items-center justify-between px-8 py-5 border-b border-border shrink-0">
+          <div>
+            <h3 className="font-bold text-base text-foreground tracking-tight">Structured Insights</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">AI-driven semantic analysis</p>
           </div>
-
-        ) : summary ? (
-          /* Step 5 — Display finished summary */
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="flex items-center gap-3 mb-8">
-              <div className="w-10 h-10 bg-accent/20 rounded-xl flex items-center justify-center">
-                <BookOpen className="w-5 h-5 text-accent-foreground" />
-              </div>
-              <div>
-                <p className="font-extrabold text-xl text-foreground">AI Summary</p>
-                {uploadFile && (
-                  <p className="text-xs text-muted-foreground truncate max-w-[260px]">{uploadFile.name}</p>
-                )}
-              </div>
-            </div>
-
-            <div className="space-y-6">
-              {summary.map((section, i) => (
-                <div key={i} className="bg-background/60 rounded-2xl p-5 border border-muted/40 shadow-sm">
-                  <p className="text-[11px] font-extrabold uppercase tracking-widest text-accent mb-3">{section.heading}</p>
-                  <ul className="space-y-2.5">
-                    {section.bullets.map((b, j) => (
-                      <li key={j} className="flex items-start gap-2.5">
-                        <ChevronRight className="w-4 h-4 text-accent mt-0.5 shrink-0" />
-                        <p className="text-sm text-foreground leading-relaxed">{b}</p>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </div>
-
+          {summary && (
             <button
-              onClick={() => { setSummary(null); setInputText(''); setUploadFile(null) }}
-              className="mt-8 w-full py-3 rounded-2xl border border-muted/50 text-muted-foreground text-sm font-bold hover:bg-muted/20 transition-colors"
+               onClick={() => { setSummary(null); setInputText(''); setUploadFile(null) }}
+               className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border text-muted-foreground text-xs font-bold hover:bg-muted/50 transition-all"
             >
-              Clear &amp; Start Over
+              <RotateCcw className="w-3.5 h-3.5" /> Start New
             </button>
-          </div>
+          )}
+        </div>
 
-        ) : (
-          /* Awaiting input */
-          <div className="text-center text-muted-foreground m-auto">
-            <div className="w-24 h-24 bg-card border border-muted/50 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-sm">
-              <FileText className="w-10 h-10 text-muted-foreground/30" />
+        {/* Dynamic Content */}
+        <div className="flex-1 overflow-y-auto p-8 lg:p-12">
+          
+          {isSummarizing ? (
+            <div className="h-full flex flex-col items-center justify-center text-center max-w-sm mx-auto">
+              <div className="w-20 h-20 rounded-3xl bg-primary/8 border border-primary/10 flex items-center justify-center mb-8 animate-pulse">
+                <Wand2 className="w-10 h-10 text-primary" />
+              </div>
+              <h3 className="font-bold text-xl text-foreground mb-3 tracking-tight">Processing Intelligence</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Evaluating semantic density and extracting core arguments for optimal retention.
+              </p>
             </div>
-            <p className="text-2xl font-extrabold text-foreground mb-3">Awaiting Context Input</p>
-            <p className="text-base leading-relaxed max-w-xs mx-auto">Enter source material on the left and engage the AI to populate this space with structured study aids.</p>
-          </div>
-        )}
+
+          ) : summary ? (
+            <div className="max-w-3xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-5 duration-700">
+               <div className="flex items-center gap-4 mb-2">
+                  <div className="w-12 h-12 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl flex items-center justify-center">
+                    <BookOpen className="w-6 h-6 text-emerald-600" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-lg text-foreground">Summary Complete</h4>
+                    <p className="text-xs text-muted-foreground">Document synthesized successfully</p>
+                  </div>
+               </div>
+
+              <div className="grid gap-6">
+                {summary.map((section, i) => (
+                  <div key={i} className="group relative bg-muted/30 border border-border rounded-2xl p-6 hover:border-primary/20 hover:bg-background transition-all duration-300">
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-primary mb-4">{section.heading}</p>
+                    <ul className="space-y-4">
+                      {section.bullets.map((point, j) => (
+                        <li key={j} className="flex items-start gap-4">
+                          <div className="w-1.5 h-1.5 rounded-full bg-primary/40 mt-2 shrink-0 group-hover:bg-primary transition-colors" />
+                          <p className="text-base text-foreground leading-relaxed opacity-90">{point}</p>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+          ) : (
+            <div className="h-full flex flex-col items-center justify-center text-center max-w-sm mx-auto opacity-40">
+              <div className="w-20 h-20 rounded-3xl bg-muted border border-border flex items-center justify-center mb-6">
+                <FileText className="w-10 h-10 text-muted-foreground/40" />
+              </div>
+              <h3 className="font-bold text-lg text-foreground mb-2">No Content Yet</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Upload a document or paste research notes to generate a structured AI summary.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

@@ -22,7 +22,9 @@ export default function KanbanCard({ task }: { task: KanbanTask }) {
   const Icon = iconMap[task.icon]
 
   return (
-    <div className={`bg-card rounded-2xl border border-muted/50 p-5 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 group cursor-grab active:cursor-grabbing active:shadow-lg ${task.isCompleted ? 'opacity-60' : ''}`}>
+    <div className={`bg-card rounded-[2rem] border border-muted/50 p-6 shadow-sm hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:hover:shadow-[0_8px_30px_rgba(255,255,255,0.03)] hover:-translate-y-1 transition-all duration-300 group cursor-grab active:cursor-grabbing active:shadow-lg relative overflow-hidden flex flex-col min-h-[160px] ${task.isCompleted ? 'opacity-50' : ''}`}>
+      {/* Subtle top gradient accent on card */}
+      <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-transparent via-primary/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
       {/* Category & Icon Row */}
       <div className="flex items-start justify-between mb-3">
         <span className="text-[11px] font-bold tracking-wide uppercase text-muted-foreground bg-muted/50 px-3 py-1 rounded-lg border border-muted/50 truncate max-w-[200px]">
@@ -34,7 +36,7 @@ export default function KanbanCard({ task }: { task: KanbanTask }) {
       </div>
 
       {/* Title */}
-      <h4 className={`font-bold text-[15px] text-foreground leading-snug mb-2 group-hover:text-primary-foreground transition-colors line-clamp-2 ${task.isCompleted ? 'line-through' : ''}`}>
+      <h4 className={`font-extrabold text-[15px] text-foreground leading-snug mb-2 group-hover:text-primary transition-colors line-clamp-2 drop-shadow-sm ${task.isCompleted ? 'line-through text-muted-foreground' : ''}`}>
         {task.title}
       </h4>
 
@@ -44,7 +46,7 @@ export default function KanbanCard({ task }: { task: KanbanTask }) {
       )}
 
       {/* Date */}
-      <div className="flex items-center gap-4 text-xs text-muted-foreground pt-3 border-t border-muted/30">
+      <div className="flex items-center gap-4 text-[11px] font-bold tracking-wide uppercase text-muted-foreground pt-4 mt-auto border-t border-muted/30">
         <span className="flex items-center gap-1.5">
           <Calendar className="w-3.5 h-3.5" />
           {task.date}

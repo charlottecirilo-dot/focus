@@ -1,12 +1,12 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useUserStore } from '@/lib/store/useUserStore'
 
 export default function NotificationPoller() {
   const { user } = useUserStore()
-  const supabase = createClient()
+  const [supabase] = useState(() => createClient())
   const hasRequestedPermission = useRef(false)
 
   useEffect(() => {
