@@ -41,9 +41,16 @@ function scoreSentences(sentences: string[]): number[] {
     const words = tokenize(sent)
     if (words.length === 0) return 0
     const score = words.reduce((sum, w) => sum + (wordFreq[w] || 0), 0)
-    // Normalize by sentence length — prefer medium-length sentences (not too short/long)
-    const lengthPenalty = words.length < 5 ? 0.5 : words.length > 40 ? 0.7 : 1.0
-    return (score / words.length) * lengthPenalty
+    
+    // Heuristics:
+    // - Prefer sentences that end with periods over fragments
+    // - Prefer medium length (10-30 tokens)
+    // - Bonus for sentences starting with capital letters
+    const lengthPenalty = words.length < 8 ? 0.4 : words.length > 50 ? 0.6 : 1.0
+    const punctuationBonus = sent.match(/[.?!]$/) ? 1.2 : 0.8
+    const capitalizationBonus = /^[A-Z]/.test(sent) ? 1.1 : 1.0
+    
+    return (score / words.length) * lengthPenalty * punctuationBonus * capitalizationBonus
   })
 }
 

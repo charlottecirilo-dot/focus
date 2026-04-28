@@ -35,6 +35,8 @@ const LANGUAGES = [
 ]
 
 export default function NoteEditor({ note, onUpdate }: NoteEditorProps) {
+  const [supabase] = useState(() => createClient())
+  
   const [title, setTitle] = useState(note.title)
   const [content, setContent] = useState(note.content)
   const [saving, setSaving] = useState(false)
@@ -43,15 +45,13 @@ export default function NoteEditor({ note, onUpdate }: NoteEditorProps) {
   // Enhanced Speech-to-text state
   const [isRecording, setIsRecording] = useState(false)
   const [interimText, setInterimText] = useState('')
-  const [selectedLanguage, setSelectedLanguage] = useState('en-US')
+  const [selectedLanguage, setSelectedLanguage] = useState('en-US') // Target Language
   const [transcriptSessions, setTranscriptSessions] = useState<TranscriptSession[]>([])
   const [currentSession, setCurrentSession] = useState<TranscriptSession | null>(null)
   const [showHistory, setShowHistory] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null)
   const [isTranslating, setIsTranslating] = useState(false)
   const [autoTranslate, setAutoTranslate] = useState(true)
-  const [translationError, setTranslationError] = useState(false)
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false)
 
   // Stable refs for queue processing
@@ -61,12 +61,34 @@ export default function NoteEditor({ note, onUpdate }: NoteEditorProps) {
   const titleRef = useRef(title)
   useEffect(() => { titleRef.current = title }, [title])
 
-  const langRef = useRef(selectedLanguage)
-  useEffect(() => { langRef.current = selectedLanguage }, [selectedLanguage])
+  const targetLangRef = useRef(selectedLanguage)
+  useEffect(() => { targetLangRef.current = selectedLanguage }, [selectedLanguage])
+
+  const contentRef = useRef<HTMLDivElement>(null)
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const [recognition, setRecognition] = useState<any>(null) // Browser SpeechRecognition is untyped
 
   // Translation Queue
   const translationQueue = useRef<string[]>([])
   const isProcessingQueue = useRef(false)
+
+  const scheduleSave = useCallback((newTitle: string, newContent: string) => {
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
+
+    setSaving(true)
+    saveTimeoutRef.current = setTimeout(async () => {
+      const { error } = await supabase
+        .from('notes')
+        .update({ title: newTitle, content: newContent })
+        .eq('id', note.id)
+
+      if (!error) {
+        setLastSaved(new Date())
+        onUpdate(note.id, { title: newTitle, content: newContent })
+      }
+      setSaving(false)
+    }, 1200)
+  }, [note.id, supabase, onUpdate])
 
   const processQueue = async () => {
     if (isProcessingQueue.current) return
@@ -75,7 +97,6 @@ export default function NoteEditor({ note, onUpdate }: NoteEditorProps) {
     while (translationQueue.current.length > 0) {
       const textToSafelyProcess = translationQueue.current[0]
       setIsTranslating(true)
-      setTranslationError(false)
 
       let finalChunk = textToSafelyProcess
 
@@ -86,15 +107,12 @@ export default function NoteEditor({ note, onUpdate }: NoteEditorProps) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               text: textToSafelyProcess,
-              targetLanguage: langRef.current
+              targetLanguage: targetLangRef.current,
+              sourceLanguage: 'autodetect'
             })
           })
 
-          if (res.status === 503) {
-            // Silently fall back
-          } else if (!res.ok) {
-            throw new Error('Translation API failed')
-          } else {
+          if (res.ok) {
             const data = await res.json()
             if (data?.translatedText) {
               finalChunk = data.translatedText
@@ -102,12 +120,10 @@ export default function NoteEditor({ note, onUpdate }: NoteEditorProps) {
           }
         } catch (err) {
           console.error('Translation queue error:', err)
-          setTranslationError(true)
         }
       }
 
       try {
-        // Step 4: Append final translated (or original) text immediately into note
         const currentContent = contentRef.current?.innerText || ''
         const newContent = currentContent.trim() ? currentContent.trim() + ' ' + finalChunk.trim() : finalChunk.trim()
 
@@ -118,7 +134,6 @@ export default function NoteEditor({ note, onUpdate }: NoteEditorProps) {
         setContent(newContent)
         scheduleSave(titleRef.current, newContent)
 
-        // Track in current session
         if (currentSessionRef.current) {
           const updatedText = (currentSessionRef.current.text + ' ' + finalChunk).trim()
           setCurrentSession({
@@ -137,11 +152,6 @@ export default function NoteEditor({ note, onUpdate }: NoteEditorProps) {
     setIsTranslating(false)
     isProcessingQueue.current = false
   }
-
-  const [supabase] = useState(() => createClient())
-  const contentRef = useRef<HTMLDivElement>(null)
-  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const [recognition, setRecognition] = useState<any>(null) // Browser SpeechRecognition is untyped
 
   // Browser STT Compatibility Check
   const isSpeechSupported = useMemo(() => {
@@ -186,13 +196,13 @@ export default function NoteEditor({ note, onUpdate }: NoteEditorProps) {
 
   // Configure Web Speech API
   useEffect(() => {
+    if (typeof window === 'undefined') return
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
     if (SpeechRecognition) {
       const rec = new SpeechRecognition()
       rec.continuous = true
       rec.interimResults = true
-      rec.lang = selectedLanguage
-
+      // Leave lang unset so the browser auto-detects the spoken language
       rec.onresult = (event: any) => { // SpeechRecognitionEvent is untyped
         let finalTranscript = ''
         let currentInterim = ''
@@ -273,7 +283,8 @@ export default function NoteEditor({ note, onUpdate }: NoteEditorProps) {
 
       setRecognition(rec)
     }
-  }, [selectedLanguage, title, note.id])
+  }, [note.id, supabase])
+
 
   const toggleRecording = () => {
     if (isRecording) {
@@ -286,35 +297,16 @@ export default function NoteEditor({ note, onUpdate }: NoteEditorProps) {
       const newSession: TranscriptSession = {
         id: crypto.randomUUID(),
         text: '',
-        language: selectedLanguage,
+        language: 'auto',
         wordCount: 0,
         startedAt: new Date()
       }
 
       setCurrentSession(newSession)
-      recognition.lang = selectedLanguage
       recognition.start()
       setIsRecording(true)
     }
   }
-
-  const scheduleSave = useCallback((newTitle: string, newContent: string) => {
-    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
-
-    setSaving(true)
-    saveTimeoutRef.current = setTimeout(async () => {
-      const { error } = await supabase
-        .from('notes')
-        .update({ title: newTitle, content: newContent })
-        .eq('id', note.id)
-
-      if (!error) {
-        setLastSaved(new Date())
-        onUpdate(note.id, { title: newTitle, content: newContent })
-      }
-      setSaving(false)
-    }, 1200)
-  }, [note.id, supabase, onUpdate])
 
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setTitle(e.target.value)
@@ -342,89 +334,86 @@ export default function NoteEditor({ note, onUpdate }: NoteEditorProps) {
       {/* Toolbar */}
       <div className="flex flex-col border-b border-muted/20 bg-background/50 backdrop-blur-md z-30">
         <div className="flex items-center justify-between px-8 py-5">
-          
+
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-2">
-               <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                 <FileText className="w-4 h-4 text-primary" />
-               </div>
-               <div className="flex flex-col">
-                 <span className="text-[10px] font-black uppercase text-muted-foreground tracking-[0.2em] leading-none mb-1">Editor Session</span>
-                 {saving ? (
-                   <span className="text-xs font-bold text-foreground/60 flex items-center gap-1.5 animate-pulse">
-                     <Save className="w-3 h-3" /> Syncing...
-                   </span>
-                 ) : (
-                   <span className="text-xs font-bold text-emerald-600 flex items-center gap-1.5">
-                     <Check className="w-3 h-3" /> System Ready
-                   </span>
-                 )}
-               </div>
+              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                <FileText className="w-4 h-4 text-primary" />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-[10px] font-black uppercase text-muted-foreground tracking-[0.2em] leading-none mb-1">Editor Session</span>
+                {saving ? (
+                  <span className="text-xs font-bold text-foreground/60 flex items-center gap-1.5 animate-pulse">
+                    <Save className="w-3 h-3" /> Syncing...
+                  </span>
+                ) : (
+                  <span className="text-xs font-bold text-emerald-600 flex items-center gap-1.5">
+                    <Check className="w-3 h-3" /> System Ready
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 
           <div className="flex items-center gap-4">
-            
+
             {/* Translation Center */}
             <div className="flex items-center bg-muted/30 p-1 rounded-[1.25rem] border border-muted/30 shadow-inner">
-               <button
-                 onClick={() => setAutoTranslate(!autoTranslate)}
-                 className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-300 text-[11px] font-black tracking-widest uppercase ${
-                   autoTranslate 
-                     ? 'bg-background text-primary shadow-sm' 
-                     : 'text-muted-foreground hover:bg-background/40'
-                 }`}
-               >
-                 <Sparkles className={`w-3.5 h-3.5 ${autoTranslate ? 'animate-sparkle' : ''}`} />
-                 {autoTranslate ? 'AI Translate On' : 'Translator Off'}
-               </button>
+              <button
+                onClick={() => setAutoTranslate(!autoTranslate)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-300 text-[11px] font-black tracking-widest uppercase ${autoTranslate
+                    ? 'bg-background text-primary shadow-sm'
+                    : 'text-muted-foreground hover:bg-background/40'
+                  }`}
+              >
+                <Sparkles className={`w-3.5 h-3.5 ${autoTranslate ? 'animate-sparkle' : ''}`} />
+                {autoTranslate ? 'AI TRANSLATE ON' : 'Translator Off'}
+              </button>
 
-               <div className="relative ml-1">
-                 <button 
-                   onClick={() => setShowLanguageDropdown(!showLanguageDropdown)}
-                   className={`flex items-center gap-3 px-4 py-2 rounded-xl transition-all duration-200 text-[11px] font-black tracking-widest uppercase ${
-                     showLanguageDropdown ? 'bg-primary text-primary-foreground' : 'text-foreground/70 hover:bg-background/40'
-                   }`}
-                 >
-                   <Globe className="w-3.5 h-3.5" />
-                   {LANGUAGES.find(l => l.code === selectedLanguage)?.name || 'Select Language'}
-                   <ChevronDown className={`w-3 h-3 transition-transform duration-300 ${showLanguageDropdown ? 'rotate-180' : ''}`} />
-                 </button>
+              <div className="relative ml-1">
+                <button
+                  onClick={() => setShowLanguageDropdown(!showLanguageDropdown)}
+                  className={`flex items-center gap-3 px-4 py-2 rounded-xl transition-all duration-200 text-[11px] font-black tracking-widest uppercase ${showLanguageDropdown ? 'bg-primary text-primary-foreground' : 'text-foreground/70 hover:bg-background/40'
+                    }`}
+                >
+                  <Globe className="w-3.5 h-3.5" />
+                  {LANGUAGES.find(l => l.code === selectedLanguage)?.name || 'Select Language'}
+                  <ChevronDown className={`w-3 h-3 transition-transform duration-300 ${showLanguageDropdown ? 'rotate-180' : ''}`} />
+                </button>
 
-                 {showLanguageDropdown && (
-                   <>
-                     <div 
-                       className="fixed inset-0 z-40" 
-                       onClick={() => setShowLanguageDropdown(false)} 
-                     />
-                     <div className="absolute top-full mt-3 right-0 w-64 bg-background border border-muted/50 rounded-2xl shadow-[0_12px_40px_rgba(0,0,0,0.15)] p-2 z-50 animate-in fade-in zoom-in-95 duration-200 origin-top-right">
-                       <p className="px-3 py-2 text-[9px] font-black uppercase text-muted-foreground tracking-widest border-b border-muted/20 mb-1">Target Language</p>
-                       <div className="max-h-72 overflow-y-auto space-y-0.5 custom-scrollbar">
-                         {LANGUAGES.map(lang => (
-                           <button
-                             key={lang.code}
-                             onClick={() => {
-                               setSelectedLanguage(lang.code)
-                               setShowLanguageDropdown(false)
-                             }}
-                             className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-colors ${
-                               selectedLanguage === lang.code 
-                                 ? 'bg-primary/10 text-primary' 
-                                 : 'hover:bg-muted/50 text-foreground/70'
-                             }`}
-                           >
-                             <div className="flex items-center gap-3">
-                               <span className="text-base leading-none">{lang.flag}</span>
-                               <span>{lang.name}</span>
-                             </div>
-                             {selectedLanguage === lang.code && <Check className="w-3.5 h-3.5" />}
-                           </button>
-                         ))}
-                       </div>
-                     </div>
-                   </>
-                 )}
-               </div>
+                {showLanguageDropdown && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-40"
+                      onClick={() => setShowLanguageDropdown(false)}
+                    />
+                    <div className="absolute top-full mt-3 right-0 w-64 bg-background border border-muted/50 rounded-2xl shadow-[0_12px_40px_rgba(0,0,0,0.15)] p-2 z-50 animate-in fade-in zoom-in-95 duration-200 origin-top-right">
+                      <p className="px-3 py-2 text-[9px] font-black uppercase text-muted-foreground tracking-widest border-b border-muted/20 mb-1">Target Language</p>
+                      <div className="max-h-72 overflow-y-auto space-y-0.5 custom-scrollbar">
+                        {LANGUAGES.map(lang => (
+                          <button
+                            key={lang.code}
+                            onClick={() => {
+                              setSelectedLanguage(lang.code)
+                              setShowLanguageDropdown(false)
+                            }}
+                            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-colors ${selectedLanguage === lang.code
+                                ? 'bg-primary/10 text-primary'
+                                : 'hover:bg-muted/50 text-foreground/70'
+                              }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <span className="text-base leading-none">{lang.flag}</span>
+                              <span>{lang.name}</span>
+                            </div>
+                            {selectedLanguage === lang.code && <Check className="w-3.5 h-3.5" />}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
 
             <div className="w-px h-8 bg-muted/40 mx-2" />
@@ -432,11 +421,10 @@ export default function NoteEditor({ note, onUpdate }: NoteEditorProps) {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setShowHistory(!showHistory)}
-                className={`p-3 rounded-xl transition-all duration-200 ${
-                  showHistory 
-                    ? 'bg-primary text-primary-foreground shadow-sm' 
+                className={`p-3 rounded-xl transition-all duration-200 ${showHistory
+                    ? 'bg-primary text-primary-foreground shadow-sm'
                     : 'bg-muted/30 text-muted-foreground hover:bg-muted/50'
-                }`}
+                  }`}
                 title="Session History"
               >
                 <History className="w-5 h-5" />
@@ -445,11 +433,10 @@ export default function NoteEditor({ note, onUpdate }: NoteEditorProps) {
               <button
                 onClick={toggleRecording}
                 disabled={!isSpeechSupported}
-                className={`flex items-center gap-3 px-6 py-3 rounded-xl text-sm font-black uppercase tracking-widest transition-all duration-300 shadow-sm relative overflow-hidden group ${
-                  isRecording
+                className={`flex items-center gap-3 px-6 py-3 rounded-xl text-sm font-black uppercase tracking-widest transition-all duration-300 shadow-sm relative overflow-hidden group ${isRecording
                     ? 'bg-red-500 text-white animate-pulse shadow-red-500/20'
                     : 'bg-foreground text-background hover:scale-[1.02] active:scale-[0.98]'
-                } disabled:opacity-30 disabled:pointer-events-none`}
+                  } disabled:opacity-30 disabled:pointer-events-none`}
               >
                 {isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
                 {isRecording ? 'Listening' : 'Start Dictate'}
@@ -461,28 +448,22 @@ export default function NoteEditor({ note, onUpdate }: NoteEditorProps) {
 
         {/* Dynamic Feedback Banners */}
         <div className="flex items-center gap-4 px-8 pb-4">
-           {isTranslating && (
-             <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-500/10 border border-amber-500/20 rounded-lg animate-in slide-in-from-top-2">
-               <Loader2 className="w-3 h-3 text-amber-600 animate-spin" />
-               <span className="text-[9px] font-black text-amber-700 uppercase tracking-widest">AI Polishing & Translating</span>
-             </div>
-           )}
-           {translationError && (
-             <div className="flex items-center gap-2 px-3 py-1.5 bg-red-500/10 border border-red-500/20 rounded-lg animate-in slide-in-from-top-2">
-               <AlertCircle className="w-3 h-3 text-red-600" />
-               <span className="text-[9px] font-black text-red-700 uppercase tracking-widest">Translation offline — showing raw text</span>
-             </div>
-           )}
-           {isRecording && (
-             <div className="flex items-center gap-2 px-3 py-1.5 bg-red-500/10 border border-red-500/20 rounded-lg animate-in slide-in-from-top-2">
-               <div className="w-1.5 h-1.5 bg-red-600 rounded-full animate-ping" />
-               <span className="text-[9px] font-black text-red-700 uppercase tracking-widest">Voice Active</span>
-             </div>
-           )}
-           <div className="ml-auto flex items-center gap-2 opacity-40">
-              <Volume2 className="w-3.5 h-3.5" />
-              <span className="text-[9px] font-black uppercase tracking-[0.2em]">{content.trim().split(/\s+/).filter(Boolean).length} Words</span>
-           </div>
+          {isTranslating && (
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-500/10 border border-amber-500/20 rounded-lg animate-in slide-in-from-top-2">
+              <Loader2 className="w-3 h-3 text-amber-600 animate-spin" />
+              <span className="text-[9px] font-black text-amber-700 uppercase tracking-widest">AI Polishing & Translating</span>
+            </div>
+          )}
+          {isRecording && (
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-red-500/10 border border-red-500/20 rounded-lg animate-in slide-in-from-top-2">
+              <div className="w-1.5 h-1.5 bg-red-600 rounded-full animate-ping" />
+              <span className="text-[9px] font-black text-red-700 uppercase tracking-widest">Voice Active</span>
+            </div>
+          )}
+          <div className="ml-auto flex items-center gap-2 opacity-40">
+            <Volume2 className="w-3.5 h-3.5" />
+            <span className="text-[9px] font-black uppercase tracking-[0.2em]">{content.trim().split(/\s+/).filter(Boolean).length} Words</span>
+          </div>
         </div>
 
         {!isSpeechSupported && (
@@ -515,28 +496,33 @@ export default function NoteEditor({ note, onUpdate }: NoteEditorProps) {
             </div>
           )}
 
+          {/* Document Title — block-level to prevent inline collapse */}
           <input
             type="text"
             value={title}
             onChange={handleTitleChange}
             placeholder="Document Title"
-            className="w-full text-4xl font-extrabold text-foreground bg-transparent border-none focus:outline-none mb-8 placeholder:text-muted-foreground/30"
+            className="block w-full text-4xl font-extrabold text-foreground bg-transparent border-none focus:outline-none mb-6 placeholder:text-muted-foreground/30"
           />
 
-          <div
-            ref={contentRef}
-            contentEditable
-            suppressContentEditableWarning
-            onInput={handleContentInput}
-            className="w-full min-h-[500px] text-lg leading-loose text-foreground/90 focus:outline-none focus:ring-0 whitespace-pre-wrap pb-32"
-          />
+          {/* Horizontal rule separator */}
+          <hr className="border-muted/20 mb-6" />
 
-
-          {content.length === 0 && !isRecording && (
-            <div className="pointer-events-none absolute top-48 text-muted-foreground/40 text-lg italic">
-              Type something, or click &quot;Dictate&quot; to transform your voice into notes...
-            </div>
-          )}
+          {/* Body content area */}
+          <div className="relative">
+            <div
+              ref={contentRef}
+              contentEditable
+              suppressContentEditableWarning
+              onInput={handleContentInput}
+              className="w-full min-h-[400px] text-lg leading-loose text-foreground/90 focus:outline-none focus:ring-0 whitespace-pre-wrap pb-32"
+            />
+            {content.length === 0 && !isRecording && (
+              <p className="pointer-events-none absolute top-0 left-0 text-muted-foreground/40 text-lg italic select-none">
+                Type something, or click &quot;Dictate&quot; to transform your voice into notes...
+              </p>
+            )}
+          </div>
         </div>
 
         {/* History Panel */}

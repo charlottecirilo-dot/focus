@@ -282,7 +282,7 @@ export default function Flashcards() {
 
             {/* AI Generation */}
             <div>
-              <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground mb-3">AI Generation</p>
+              <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground mb-3">Generation</p>
               <div
                 onDragOver={e => { e.preventDefault(); setIsDragging(true) }}
                 onDragLeave={e => { e.preventDefault(); setIsDragging(false) }}

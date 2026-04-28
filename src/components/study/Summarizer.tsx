@@ -175,7 +175,7 @@ export default function Summarizer() {
             ) : (
               <Sparkles className="w-4 h-4" />
             )}
-            {isSummarizing ? 'Synthesizing...' : 'Generate AI Summary'}
+            {isSummarizing ? 'Synthesizing...' : 'Generate Summary'}
           </button>
         </div>
       </div>
@@ -187,7 +187,7 @@ export default function Summarizer() {
         <div className="flex items-center justify-between px-8 py-5 border-b border-border shrink-0">
           <div>
             <h3 className="font-bold text-base text-foreground tracking-tight">Structured Insights</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">AI-driven semantic analysis</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Automated semantic analysis</p>
           </div>
           {summary && (
             <button
