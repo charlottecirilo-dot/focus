@@ -1,14 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import Anthropic from '@anthropic-ai/sdk'
 
 export async function POST(req: NextRequest) {
-  const apiKey = process.env.ANTHROPIC_API_KEY
-  if (!apiKey || apiKey === 'your_anthropic_api_key_here') {
-    return NextResponse.json({ error: 'Translation service is not configured.' }, { status: 503 })
-  }
-
-  const anthropic = new Anthropic({ apiKey })
-
   try {
     const { text, targetLanguage } = await req.json()
 
@@ -24,8 +16,12 @@ export async function POST(req: NextRequest) {
       'en-US': 'English (US)',
       'en-GB': 'English (UK)',
       'fil-PH': 'Filipino / Tagalog',
+      'zh-CN': 'Chinese (Simplified)',
       'es-ES': 'Spanish',
-      'ja-JP': 'Japanese'
+      'fr-FR': 'French',
+      'de-DE': 'German',
+      'ja-JP': 'Japanese',
+      'ko-KR': 'Korean'
     }
 
     const targetLangName = LANGUAGE_MAP[targetLanguage] || targetLanguage
@@ -35,20 +31,35 @@ export async function POST(req: NextRequest) {
 STRICT RULES:
 - Provide ONLY the translated text.
 - Do not add any conversational filler, explanations, or quotes.
-- If the text is already in the target language, just fix any obvious grammatical errors or typos and return it.
+- Dictation software might have mistranscribed the words (for instance mistaking foreign words for phonetically similar English words). Be smart and infer the true intended meaning, then translate it to ${targetLangName}.
+- If the text is already in the target language or is a mix, convert the entire intent to ${targetLangName} and correct any grammatical errors.
 - Maintain the original tone and formatting as much as possible.
 
 TEXT TO TRANSLATE:
 ${text}`
 
-    const response = await anthropic.messages.create({
-      model: 'claude-3-5-haiku-20241022',
-      max_tokens: 1024,
-      messages: [{ role: 'user', content: prompt }]
+    const apiKey = process.env.GEMINI_API_KEY
+    if (!apiKey) throw new Error('API key not configured')
+
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash-8b:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.1,
+          maxOutputTokens: 1024
+        }
+      })
     })
 
-    // @ts-ignore
-    const translatedText = response.content[0].text?.trim() ?? ''
+    if (!response.ok) {
+        throw new Error(`API error: ${response.status} ${response.statusText}`)
+    }
+
+    const data = await response.json()
+    let translatedText = data.candidates?.[0]?.content?.parts?.[0]?.text || ""
+    translatedText = translatedText.trim()
 
     return NextResponse.json({ translatedText })
   } catch (err: any) {

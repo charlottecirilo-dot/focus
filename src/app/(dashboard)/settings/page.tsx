@@ -66,7 +66,7 @@ export default function SettingsPage() {
              <p className="text-sm font-medium text-muted-foreground">Configure interface color mode dynamics to match your preferences.</p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-3xl relative z-10">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-2xl relative z-10">
              <button 
                onClick={() => setTheme('light')}
                className={`p-6 rounded-[2rem] border-2 flex flex-col items-center gap-4 transition-all duration-300 relative overflow-hidden ${
@@ -87,17 +87,6 @@ export default function SettingsPage() {
                {theme === 'dark' && <div className="absolute inset-0 bg-gradient-to-t from-accent/10 to-transparent pointer-events-none" />}
                <Moon className={`w-10 h-10 transition-all ${theme === 'dark' ? 'text-accent drop-shadow-[0_0_15px_rgba(var(--accent),0.8)] scale-110' : 'text-accent/40'}`} />
                <span className={`font-black text-sm tracking-wide ${theme === 'dark' ? 'text-accent' : 'text-muted-foreground'}`}>Dark Theme</span>
-             </button>
-
-             <button 
-               onClick={() => setTheme('system')}
-               className={`p-6 rounded-[2rem] border-2 flex flex-col items-center gap-4 transition-all duration-300 relative overflow-hidden ${
-                 theme === 'system' ? 'border-foreground bg-foreground/5 scale-[1.02] shadow-[0_8px_30px_rgba(var(--foreground),0.1)]' : 'border-muted/50 hover:border-foreground/50 hover:bg-foreground/5 hover:shadow-sm grayscale hover:grayscale-0'
-               }`}
-             >
-               {theme === 'system' && <div className="absolute inset-0 bg-gradient-to-t from-foreground/5 to-transparent pointer-events-none" />}
-               <Monitor className={`w-10 h-10 transition-all ${theme === 'system' ? 'text-foreground drop-shadow-[0_0_15px_rgba(var(--foreground),0.3)] scale-110' : 'text-foreground/40'}`} />
-               <span className={`font-black text-sm tracking-wide ${theme === 'system' ? 'text-foreground' : 'text-muted-foreground'}`}>System Rules</span>
              </button>
           </div>
         </div>

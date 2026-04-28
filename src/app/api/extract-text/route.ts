@@ -6,7 +6,7 @@ export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData()
     const file = formData.get('file') as File
-    
+
     if (!file) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 })
     }
@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
 
     // Clean up text
     extractedText = extractedText.replace(/\r\n/g, '\n').replace(/\n+/g, '\n').trim()
-    
+
     return NextResponse.json({ text: extractedText })
   } catch (error: any) {
     console.error('Extraction error:', error)

@@ -46,7 +46,12 @@ export default function Flashcards() {
   const fetchCards = async () => {
     const { data, error } = await supabase.from('flashcards').select('*').order('created_at', { ascending: false })
     if (error) {
-      console.error('Error fetching cards:', error)
+      console.error('Error fetching cards:', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code
+      })
     }
     if (data) setCards(data)
     setLoading(false)
